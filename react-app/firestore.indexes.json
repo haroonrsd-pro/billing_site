@@ -1,0 +1,79 @@
+{
+  "firestore": {
+    "indexes": [
+      {
+        "collectionGroup": "invoices",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "companyId", "order": "ASCENDING" },
+          { "fieldPath": "date", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "invoices",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "branch_id", "order": "ASCENDING" },
+          { "fieldPath": "date", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "invoices",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "status", "order": "ASCENDING" },
+          { "fieldPath": "date", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "invoices",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "type", "order": "ASCENDING" },
+          { "fieldPath": "date", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "users",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "role", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "users",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "approved", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "customers",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "companyId", "order": "ASCENDING" },
+          { "fieldPath": "createdAt", "order": "DESCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "products",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "companyId", "order": "ASCENDING" },
+          { "fieldPath": "name", "order": "ASCENDING" }
+        ]
+      },
+      {
+        "collectionGroup": "branches",
+        "queryScope": "COLLECTION",
+        "fields": [
+          { "fieldPath": "companyId", "order": "ASCENDING" },
+          { "fieldPath": "name", "order": "ASCENDING" }
+        ]
+      }
+    ],
+    "fieldOverrides": []
+  }
+}

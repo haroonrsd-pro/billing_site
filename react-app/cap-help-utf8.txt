@@ -1,0 +1,18 @@
+﻿Usage: capacitor run [options] [platform]
+
+runs sync, then builds and deploys the native app
+
+Options:
+  --scheme <schemeName>       set the scheme of the iOS project
+  --flavor <flavorName>       set the flavor of the Android project (flavor
+                              dimensions not yet supported)
+  --list                      list targets, then quit
+  --target <id>               use a specific target
+  --no-sync                   do not run sync
+  --forwardPorts <port:port>  Automatically run "adb reverse" for better
+                              live-reloading support
+  -l, --live-reload           Enable Live Reload
+  --host <host>               Host used for live reload
+  --port <port>               Port used for live reload
+  --configuration <name>      Configuration name of the iOS Scheme
+  -h, --help                  display help for command

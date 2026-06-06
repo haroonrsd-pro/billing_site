@@ -1,0 +1,72 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*-err.txt
+*-out.txt
+*-output.txt
+*-log.txt
+eslint-*.txt
+lint-*.txt
+logcat*.txt
+build_log.txt
+
+# Node / JS / Electron
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-electron/
+**/dist-electron/
+dist-ssr/
+**/dist-ssr/
+*.local
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Editor directories and files
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.iml
+*.ipr
+*.iws
+
+# IDE/Editor specifics for Android/Java projects
+**/workspace.xml
+**/shelf/
+**/inspectionProfiles/
+
+# Mobile / Android / Cordova / Capacitor
+**/android/build/
+**/android/app/build/
+**/capacitor-cordova-android-plugins/
+emulator_screenshot_*.png
+simulation_final.png
+cap_run*.log
+build-*.log
+build-*.txt
+*.apk
+
+# Firebase
+.firebase/
+**/.firebase/

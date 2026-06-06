@@ -1,0 +1,14 @@
+﻿ΓêÜ Copying web assets from dist to android\app\src\main\assets\public in 100.15ms
+ΓêÜ Creating capacitor.config.json in android\app\src\main\assets in 3.84ms
+[info] Inlining sourcemaps
+ΓêÜ copy android in 211.12ms
+ΓêÜ Updating Android plugins in 26.13ms
+[info] Found 2 Capacitor plugins for android:
+       @capacitor/filesystem@7.0.0
+       @capacitor/share@7.0.0
+ΓêÜ update android in 315.58ms
+[?25l[36m?[39m [1mPlease choose a target device:[22m [90m┬╗[39m [90m- Use arrow-keys. Return to submit.[39m
+[36m>[39m   [36m[4mGoogle sdk_gphone64_x86_64 (emulator-5554)[39m[24m[90m[39m
+    Medium Phone API 36.1 (emulator) (Medium_Phone_API_36.1)[90m[39m
+[2K[1G[31m├ù[39m [1mPlease choose a target device:[22m [90m┬╗[39m Google sdk_gphone64_x86_64 (emulator-5554)
+[?25h

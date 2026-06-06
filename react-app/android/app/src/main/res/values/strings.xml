@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FoodBill Pro</string>
+    <string name="title_activity_main">FoodBill Pro</string>
+    <string name="package_name">com.foodbill.app</string>
+    <string name="custom_url_scheme">com.foodbill.app</string>
+</resources>
