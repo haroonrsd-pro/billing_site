@@ -4588,33 +4588,50 @@ body {
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
-    :root {
+    .device-tablet.sidebar-collapsed {
         --sidebar-w: 80px;
     }
 
-    .device-tablet .sidebar {
-        width: var(--sidebar-w);
-        min-width: var(--sidebar-w);
+    .device-tablet.sidebar-expanded {
+        --sidebar-w: 240px;
     }
 
-    .device-tablet .sb-store-name,
-    .device-tablet .sb-store-sub,
-    .device-tablet .sb-section-label,
-    .device-tablet .sb-item span:not(.si-icon) {
+    /* Keep sidebar always visible on tablet, overriding translate rules */
+    .device-tablet .sidebar {
+        transform: translateX(0) !important;
+        transition: width 0.3s ease, min-width 0.3s ease;
+    }
+
+    /* Stylings when sidebar is collapsed on tablet */
+    .device-tablet.sidebar-collapsed .sb-store-name,
+    .device-tablet.sidebar-collapsed .sb-store-sub,
+    .device-tablet.sidebar-collapsed .sb-section-label,
+    .device-tablet.sidebar-collapsed .sb-item span:not(.si-icon) {
         display: none;
     }
 
-    .device-tablet .sb-item {
+    .device-tablet.sidebar-collapsed .sb-item {
         justify-content: center;
         padding: 1rem 0;
     }
 
+    /* Hide menu item icons completely on tablet in all states */
     .device-tablet .si-icon {
-        font-size: 1.5rem;
+        display: none !important;
     }
 
-    .device-tablet .main-content {
+    /* Hide store brand, dividers, and menu items when collapsed on tablet */
+    .device-tablet.sidebar-collapsed .sb-store,
+    .device-tablet.sidebar-collapsed .sb-divider,
+    .device-tablet.sidebar-collapsed .sb-item {
+        display: none !important;
+    }
+
+    /* Main content margin behavior for tablet */
+    .device-tablet .main-content,
+    .device-tablet .main-content.expanded {
         margin-left: var(--sidebar-w);
+        transition: margin-left 0.3s ease;
     }
 }
 

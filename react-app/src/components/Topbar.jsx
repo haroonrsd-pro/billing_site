@@ -225,7 +225,7 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     );
 
     // MOBILE RENDER
-    if (isMobile) {
+    if (isMobile || variant === 'compact') {
         return (
             <>
                 <header className="topbar mobile-topbar" style={{ height: '56px', background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -302,14 +302,11 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     }
 
     // TABLET RENDER
-    if (isTablet) {
+    if (isTablet && variant !== 'compact') {
         return (
             <header className="topbar tablet-topbar" style={{ height: '60px' }}>
                 <div className="topbar-left">
-                    <button className="sidebar-toggle" onClick={onToggleSidebar}>
-                        <Menu size={20} />
-                    </button>
-                    <div className="breadcrumb" style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
+                    <div className="breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
                         <span>Home</span>
                         <ChevronRight size={14} />
                         <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{getPageTitle()}</span>
