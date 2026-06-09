@@ -11,15 +11,16 @@ import {
     ArrowLeft, 
     X,
     Filter,
-<<<<<<< Updated upstream
     ChevronRight
-=======
     ChevronRight,
     Edit2,
     ChevronDown,
     Folder,
     ChevronUp
->>>>>>> Stashed changes
+=======
+    ChevronRight,
+    Edit2
+>>>>>>> main
 } from 'lucide-react';
 
 export default function Inventory() {
@@ -108,8 +109,6 @@ export default function Inventory() {
     const [newCategoryName, setNewCategoryName] = useState('');
     const [newCategoryIcon, setNewCategoryIcon] = useState('🍛');
 
-<<<<<<< Updated upstream
-=======
     // Edit Product State
     const [editingProductId, setEditingProductId] = useState(null);
 
@@ -144,7 +143,37 @@ export default function Inventory() {
         setNewCategoryIcon('🍛');
     };
 
->>>>>>> Stashed changes
+=======
+    // Edit Product State
+    const [editingProductId, setEditingProductId] = useState(null);
+
+    const startEdit = (item) => {
+        setEditingProductId(item.id);
+        setNewProduct({
+            name: item.name || '',
+            cat: item.cat || 'rice',
+            type: item.type || 'veg',
+            price: item.price !== undefined ? String(item.price) : '',
+            cost: item.cost !== undefined ? String(item.cost) : '',
+            stock: item.stock !== undefined ? String(item.stock) : '',
+            unit: item.unit || 'plate',
+            low: item.low !== undefined ? String(item.low) : '5',
+            desc: item.desc || '',
+            img: item.img || ''
+        });
+        if (isMobile) {
+            setShowAddModal(true);
+        }
+    };
+
+    const clearForm = () => {
+        setEditingProductId(null);
+        setNewProduct({
+            name: '', cat: 'rice', type: 'veg', price: '', cost: '', stock: '', unit: 'plate', low: 5, desc: '', img: ''
+        });
+    };
+
+>>>>>>> main
     const userRole = (sessionStorage.getItem('fb_user_role') || '').toLowerCase();
     const userBranch = sessionStorage.getItem('fb_user_station') || 'Main Branch';
     const userBranchId = sessionStorage.getItem('fb_user_branch_id') || 'main';
@@ -655,8 +684,6 @@ export default function Inventory() {
         }
     };
 
-<<<<<<< Updated upstream
-=======
     const handleUpdateProduct = async () => {
         const hasCategory = isCreatingNewCategory ? !!newCategoryName.trim() : !!newProduct.categoryId;
         if (!newProduct.name || !newProduct.price || newProduct.stock === '' || !hasCategory) {
@@ -692,6 +719,15 @@ export default function Inventory() {
             cat: finalCatName.toLowerCase(),
             categoryId: finalCategoryId,
             subcategoryId: isCreatingNewCategory ? '' : (newProduct.subcategoryId || ''),
+    const handleUpdateProduct = async () => {
+        if (!newProduct.name || !newProduct.price || newProduct.stock === '') {
+            showToast('Please fill required fields: Name, Sell Price, Stock Qty', 'error');
+            return;
+        }
+
+        const product = {
+            name: newProduct.name,
+            cat: newProduct.cat,
             type: newProduct.type,
             price: parseFloat(newProduct.price) || 0,
             cost: parseFloat(newProduct.cost) || 0,
@@ -712,7 +748,7 @@ export default function Inventory() {
         }
     };
 
->>>>>>> Stashed changes
+
     const handleDeleteProduct = (id) => {
         showConfirm({
             title: 'Delete Product',
@@ -1052,10 +1088,21 @@ export default function Inventory() {
                     />
                 </div>
             </div>
-            <div style={{ paddingTop: '1rem', marginTop: '1rem' }}>
-                <button className="btn btn-primary" style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', borderRadius: '8px', fontWeight: 800, background: 'var(--accent)' }} onClick={handleAddProduct}>
-                    ＋ Add to Inventory
-                </button>
+            <div style={{ paddingTop: '1rem', marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                {editingProductId ? (
+                    <>
+                        <button className="btn btn-primary" style={{ flex: 1, padding: '0.8rem', fontSize: '1rem', borderRadius: '8px', fontWeight: 800, background: 'var(--accent)' }} onClick={handleUpdateProduct}>
+                            Save Changes
+                        </button>
+                        <button className="btn btn-ghost" style={{ padding: '0.8rem', fontSize: '1rem', borderRadius: '8px', fontWeight: 800, border: '1px solid var(--border)' }} onClick={clearForm}>
+                            Cancel
+                        </button>
+                    </>
+                ) : (
+                    <button className="btn btn-primary" style={{ width: '100%', padding: '0.8rem', fontSize: '1rem', borderRadius: '8px', fontWeight: 800, background: 'var(--accent)' }} onClick={handleAddProduct}>
+                        ＋ Add to Inventory
+                    </button>
+                )}
             </div>
         </div>
     )};
@@ -1071,16 +1118,14 @@ export default function Inventory() {
                 paddingBottom: '2px',
                 marginTop: isMobile ? '1.2cm' : '0.5cm'
             }}>
-<<<<<<< Updated upstream
                 {!isMobile && (
                     <div className="inv-add-panel">
                         <div style={{ fontFamily: "'Yeseva One', serif", fontSize: '1.15rem', marginBottom: '1.2rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
-                            ＋ Add Product
+                            {editingProductId ? '📝 Edit Product' : '＋ Add Product'}
                         </div>
                         {ProductForm()}
                     </div>
                 )}
-=======
                 <button 
                     onClick={() => setActiveTab('products')}
                     style={{
@@ -1114,7 +1159,6 @@ export default function Inventory() {
                     📁 Categories & Tree
                 </button>
             </div>
->>>>>>> Stashed changes
 
             {activeTab === 'products' ? (
                 <div className="inv-layout-2" style={{ 
@@ -1142,7 +1186,6 @@ export default function Inventory() {
                                 style={{ background: 'var(--panel)', border: '1.5px solid var(--border)', color: 'var(--ink)', padding: '.5rem .9rem', borderRadius: '100px', fontFamily: "'Nunito', sans-serif", fontSize: '.82rem', flex: 1, minWidth: '150px', outline: 'none' }}
                             />
 
-<<<<<<< Updated upstream
                                         return (
                                             <div key={m.id} className="inv-card-mobile" style={{ 
                                                 background: 'white', 
@@ -1165,9 +1208,14 @@ export default function Inventory() {
                                                         <div style={{ fontWeight: 800, fontSize: '0.95rem', color: 'var(--ink)' }}>{m.name}</div>
                                                         <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: 'var(--muted)', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{m.cat}</span>
                                                     </div>
-                                                    <button className="btn-vibe-danger" onClick={() => handleDeleteProduct(m.id)} style={{ padding: '8px', borderRadius: '10px', height: '40px', width: '40px' }}>
-                                                        <Trash2 size={16} />
-                                                    </button>
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <button className="btn btn-ghost" onClick={() => startEdit(m)} style={{ padding: '8px', borderRadius: '10px', height: '40px', width: '40px', color: 'var(--accent)', border: '1px solid var(--border)' }}>
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button className="btn-vibe-danger" onClick={() => handleDeleteProduct(m.id)} style={{ padding: '8px', borderRadius: '10px', height: '40px', width: '40px' }}>
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
                                                 </div>
 
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '8px 12px', borderRadius: '12px' }}>
@@ -1188,7 +1236,6 @@ export default function Inventory() {
                                             </div>
                                         );
                                     })
-=======
                             <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
                                 <button className={`btn btn-ghost btn-sm ${filterStatus === 'all' ? 'active' : ''}`} onClick={() => setFilterStatus('all')}>All</button>
                                 <button className={`btn btn-ghost btn-sm ${filterStatus === 'in' ? 'active' : ''}`} onClick={() => setFilterStatus('in')}>✅ In</button>
@@ -1202,7 +1249,6 @@ export default function Inventory() {
                                     >
                                         🗑 {isMobile ? '' : 'Delete Out of Stock '} ({stats.outStock})
                                     </button>
->>>>>>> Stashed changes
                                 )}
                             </div>
                         </div>
@@ -1291,20 +1337,27 @@ export default function Inventory() {
                                                                 );
                                                             })()}
                                                         </div>
-<<<<<<< Updated upstream
                                                     </td>
                                                     <td data-label="Status"><span className={`status-badge ${statusObj.cls}`}>{statusObj.txt}</span></td>
                                                     <td data-label="Actions">
-                                                        <button
-                                                            className="btn btn-ghost btn-sm"
-                                                            style={{ color: 'var(--red)', padding: '.3rem .6rem' }}
-                                                            onClick={() => handleDeleteProduct(m.id)}
-                                                        >
-                                                            <Trash2 size={16} />
-                                                        </button>
+                                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ color: 'var(--accent)', padding: '.3rem .6rem' }}
+                                                                onClick={() => startEdit(m)}
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                style={{ color: 'var(--red)', padding: '.3rem .6rem' }}
+                                                                onClick={() => handleDeleteProduct(m.id)}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
-=======
                                                         <div style={{ display: 'flex', gap: '4px' }}>
                                                             <button className="btn btn-ghost" onClick={() => startEdit(m)} style={{ padding: '8px', borderRadius: '10px', height: '40px', width: '40px', color: 'var(--accent)', border: '1px solid var(--border)' }}>
                                                                 <Edit2 size={16} />
@@ -1331,7 +1384,6 @@ export default function Inventory() {
                                                         <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>Alert at: {m.low}</span>
                                                     </div>
                                                 </div>
->>>>>>> Stashed changes
                                             );
                                         })
                                     )}
@@ -1519,10 +1571,12 @@ export default function Inventory() {
                         gap: '1rem',
                         borderBottom: '1px solid var(--border)'
                     }}>
-                        <button onClick={() => setShowAddModal(false)} style={{ background: 'transparent', border: 'none' }}>
+                        <button onClick={() => { setShowAddModal(false); clearForm(); }} style={{ background: 'transparent', border: 'none' }}>
                             <ArrowLeft size={24} />
                         </button>
-                        <span style={{ fontFamily: "'Yeseva One', serif", fontSize: '1.25rem' }}>Add New Product</span>
+                        <span style={{ fontFamily: "'Yeseva One', serif", fontSize: '1.25rem' }}>
+                            {editingProductId ? 'Edit Product' : 'Add New Product'}
+                        </span>
                     </div>
                     <div className="mobile-modal-content" style={{ padding: '1rem' }}>
                         {ProductForm()}

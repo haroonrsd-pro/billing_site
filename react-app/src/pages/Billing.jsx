@@ -521,7 +521,10 @@ export default function Billing() {
      * handleConfirmPrint - Triggers the native print dialog and commits the transaction.
      */
     const handleConfirmPrint = async (passedSnapshot = null) => {
-        const theSnapshot = passedSnapshot || printSnapshot;
+        // Guard: If passedSnapshot is a React Event object, ignore it and use the state printSnapshot.
+        const theSnapshot = (passedSnapshot && typeof passedSnapshot === 'object' && 'invoiceNo' in passedSnapshot)
+            ? passedSnapshot
+            : printSnapshot;
         if (!theSnapshot) return showToast("No snapshot available.", "error");
 
         if (Capacitor.isNativePlatform()) {
@@ -890,7 +893,7 @@ export default function Billing() {
                             </div>
                             <div className="invoice-modal-footer">
                                 <button className="btn btn-outline" onClick={() => setShowPrintModal(false)}>Cancel</button>
-                                <button className="btn btn-primary" onClick={handleConfirmPrint}>Confirm & Print</button>
+                                <button className="btn btn-primary" onClick={() => handleConfirmPrint()}>Confirm & Print</button>
                             </div>
                         </div>
                     </div>
@@ -1722,7 +1725,7 @@ export default function Billing() {
                         </div>
                         <div className="invoice-modal-footer">
                             <button className="btn btn-outline" onClick={() => setShowPrintModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleConfirmPrint}>Confirm & Print</button>
+                            <button className="btn btn-primary" onClick={() => handleConfirmPrint()}>Confirm & Print</button>
                         </div>
                     </div>
                 </div>
