@@ -34,6 +34,9 @@ import CouponManagement from './pages/CouponManagement';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
 import InitDB from './pages/InitDB';
 import AdminAction from './pages/AdminAction';
+import TableManagement from './pages/TableManagement';
+import CustomerMenu from './pages/CustomerMenu';
+import KitchenDisplay from './pages/KitchenDisplay';
 import './styles/PremiumMobile.css';
 
 // Helper component to protect routes requiring a role
@@ -179,7 +182,15 @@ function App() {
             {/* Coupon Management Routes */}
             <Route path="/admin/coupons" element={<RoleProtectedRoute requiredRole={['owner', 'admin']}><CouponManagement /></RoleProtectedRoute>} />
             <Route path="/admin/coupon-reports" element={<RoleProtectedRoute requiredRole={['owner', 'admin']}><AdminReports /></RoleProtectedRoute>} />
+
+            {/* QR Table Ordering & Kitchen Routes */}
+            <Route path="/tables" element={<RoleProtectedRoute requiredRole={['owner', 'admin']}><TableManagement /></RoleProtectedRoute>} />
+            <Route path="/kitchen" element={<RoleProtectedRoute requiredRole={['owner', 'admin', 'staff']}><KitchenDisplay /></RoleProtectedRoute>} />
           </Route>
+
+          {/* Public customer-facing self-ordering menu */}
+          <Route path="/menu/:ownerId/:branchId/:tableId" element={<CustomerMenu />} />
+          <Route path="/menu" element={<CustomerMenu />} />
           
           {/* Dedicated Super Admin Dashboard (Standalone Layout) */}
           <Route path="/super-admin-dashboard" element={<RoleProtectedRoute requiredRole="superadmin"><SuperAdminDashboard /></RoleProtectedRoute>} />

@@ -113,6 +113,20 @@ export default function Sidebar({ collapsed: propCollapsed }) {
             <hr className="sb-divider" />
 
             <div className="sb-section">
+                {!isActuallyCollapsed && <div className="sb-section-label">Dine-In & QR Orders</div>}
+                <NavLink to="/kitchen" className={getNavClass} title={isActuallyCollapsed ? "Kitchen Display" : ""}>
+                    <span className="si-icon">👨‍🍳</span> {!isActuallyCollapsed && "Kitchen Display"}
+                </NavLink>
+                {(userRole === 'owner' || userRole === 'admin') && (
+                    <NavLink to="/tables" className={getNavClass} title={isActuallyCollapsed ? "Table QR Codes" : ""}>
+                        <span className="si-icon">🍽️</span> {!isActuallyCollapsed && "Table QR Codes"}
+                    </NavLink>
+                )}
+            </div>
+
+            <hr className="sb-divider" />
+
+            <div className="sb-section">
                 {!isActuallyCollapsed && <div className="sb-section-label">Inventory & Purchases</div>}
                 <NavLink to="/inventory" className={getNavClass} title={isActuallyCollapsed ? "Stock & Inventory" : ""}>
                     <span className="si-icon">📦</span> {!isActuallyCollapsed && "Stock & Inventory"}

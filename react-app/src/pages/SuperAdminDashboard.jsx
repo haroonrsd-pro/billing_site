@@ -115,6 +115,67 @@ const SuperAdminDashboard = () => {
             
             await setDoc(doc(db, 'users', ownerId), userData);
 
+            // 3.1 Provision Owner Config
+            await setDoc(doc(db, 'owners', ownerId), {
+                businessName: cleanRequest.companyName,
+                email: cleanRequest.email,
+                name: cleanRequest.name,
+                status: 'approved',
+                createdAt: serverTimestamp()
+            });
+
+            // 3.2 Provision Default Branch
+            await setDoc(doc(db, 'owners', ownerId, 'branches', 'main'), {
+                name: 'Main Branch',
+                city: 'Chennai',
+                district: 'Chennai',
+                state: 'Tamil Nadu',
+                address: 'Main HQ Street',
+                phone: cleanRequest.phone,
+                manager: cleanRequest.name,
+                status: 'active',
+                ownerName: cleanRequest.name,
+                ownerPhone: cleanRequest.phone,
+                ownerEmail: cleanRequest.email,
+                companyId: ownerId,
+                createdAt: serverTimestamp()
+            });
+
+            // 3.3 Provision 5 Default Tables with QR URLs
+            for (let i = 1; i <= 5; i++) {
+                const tableId = `T${i}`;
+                await setDoc(doc(db, 'owners', ownerId, 'branches', 'main', 'tables', tableId), {
+                    id: tableId,
+                    name: `Table ${i}`,
+                    number: i,
+                    capacity: 4,
+                    status: 'available',
+                    qrUrl: `${window.location.origin}/#/menu/${ownerId}/main/${tableId}`,
+                    createdAt: serverTimestamp()
+                });
+            }
+
+            // 3.4 Seed 8 Default Products for Menu Access
+            const initialProducts = [
+                { name: 'Chicken Biryani', cat: 'rice', type: 'nveg', price: 180, cost: 90, stock: 50, unit: 'plate', low: 5, img: '/food-images/chicken_biryani.png' },
+                { name: 'Veg Biryani', cat: 'rice', type: 'veg', price: 130, cost: 60, stock: 40, unit: 'plate', low: 5, img: '/food-images/veg_biryani.png' },
+                { name: 'Paneer Butter Masala', cat: 'curries', type: 'veg', price: 160, cost: 70, stock: 30, unit: 'bowl', low: 5, img: '/food-images/paneer_masala.png' },
+                { name: 'Butter Naan', cat: 'breads', type: 'veg', price: 30, cost: 10, stock: 100, unit: 'piece', low: 10, img: '/food-images/butter_naan.png' },
+                { name: 'Chicken 65', cat: 'starters', type: 'nveg', price: 200, cost: 100, stock: 25, unit: 'plate', low: 5, img: '/food-images/chicken_65.png' },
+                { name: 'Mango Lassi', cat: 'drinks', type: 'veg', price: 60, cost: 20, stock: 60, unit: 'glass', low: 10, img: '/food-images/mango_lassi.png' },
+                { name: 'Gulab Jamun', cat: 'desserts', type: 'veg', price: 50, cost: 15, stock: 80, unit: 'piece', low: 10, img: '/food-images/gulab_jamun.png' },
+                { name: 'Samosa', cat: 'snacks', type: 'veg', price: 20, cost: 8, stock: 3, unit: 'piece', low: 5, img: '/food-images/samosa.png' }
+            ];
+
+            for (const prod of initialProducts) {
+                const prodRef = doc(collection(db, 'owners', ownerId, 'products'));
+                await setDoc(prodRef, {
+                    ...prod,
+                    companyId: ownerId,
+                    createdAt: serverTimestamp()
+                });
+            }
+
             // 4. Update Registration Request
             await updateDoc(doc(db, 'registration_requests', req.id), {
                 status: 'approved',

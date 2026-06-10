@@ -184,7 +184,7 @@ export default function RoleSelect() {
             
             // Set owner/tenant ID context
             // In the unified system, the ownerId IS the UID for owners, or stored in child docs.
-            const ownerId = data.role === 'owner' ? authUser.uid : (data.ownerId || authUser.uid);
+            const ownerId = data.role === 'owner' ? authUser.uid : (data.ownerId || data.adminUID || authUser.uid);
             sessionStorage.setItem('fb_user_owner_id', ownerId);
             sessionStorage.setItem('fb_user_company_id', data.companyId || ownerId);
             sessionStorage.setItem('fb_user_branch_id', loggedUser.branch_id || 'main');
