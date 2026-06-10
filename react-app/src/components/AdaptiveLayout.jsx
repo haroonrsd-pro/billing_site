@@ -13,6 +13,14 @@ import BottomNav from './BottomNav';
 const AdaptiveLayout = () => {
   const { device, isMobile, isTablet, isDesktop, isPortrait } = useDevice();
   const deviceClass = useDeviceClass();
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(true);
+
+  // Sync with orientation for tablets only when orientation actually changes
+  const lastOrientationRef = React.useRef(isPortrait);
+  React.useEffect(() => {
+    if (isTablet && lastOrientationRef.current !== isPortrait) {
+      setSidebarCollapsed(true); // Default to collapsed on rotation
+      lastOrientationRef.current = isPortrait;
   const userToggledRef = React.useRef(false);
   const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => isTablet && isPortrait);
 
@@ -26,6 +34,7 @@ const AdaptiveLayout = () => {
   }, [isTablet, isPortrait]);
 
   const toggleSidebar = () => {
+    setSidebarCollapsed(!sidebarCollapsed);
     userToggledRef.current = true;
     setSidebarCollapsed(prev => !prev);
   };
@@ -33,6 +42,7 @@ const AdaptiveLayout = () => {
   // Common wrapper styles
   const shellClass = `app-shell app-shell--${device} ${deviceClass} ${sidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'}`;
 
+  // MOBILE & TABLET SHELL
 
   // MOBILE & TABLET EMULATOR SHELL
   if (isMobile || isTablet) {
@@ -54,6 +64,13 @@ const AdaptiveLayout = () => {
     );
   }
 
+  // DESKTOP SHELL (Default/Fallback)
+  return (
+    <div className={shellClass} style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <Topbar />
+      <div className="app-body">
+        <Sidebar collapsed={false} />
+        <main className="main-content" style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 2rem' }}>
   // TABLET SHELL
   if (isTablet) {
     return (

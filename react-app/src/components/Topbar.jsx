@@ -29,7 +29,7 @@ import { signOut } from 'firebase/auth';
 export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isMobile, isTablet, isDesktop } = useDevice();
+    const { isMobile, isTablet, isDesktop, isPortrait } = useDevice();
     const { docs: customers } = useFirestore('customers');
     const { docs: messages, addDocument } = useFirestore('messages');
 
@@ -224,13 +224,15 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
         </div>
     );
 
+    // MOBILE & TABLET RENDER
+    if (isMobile || isTablet) {
     // MOBILE RENDER
     if (isMobile || variant === 'compact') {
         return (
             <>
                 <header className="topbar mobile-topbar" style={{ height: '56px', background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div className="topbar-left">
-                        <button className="tb-icon-btn" onClick={() => setIsDrawerOpen(true)}>
+                        <button className="tb-icon-btn" onClick={(e) => { e.stopPropagation(); setIsDrawerOpen(true); }}>
                             <Menu size={24} color="#0f172a" />
                         </button>
                     </div>
@@ -258,9 +260,9 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
                     </div>
                 </header>
 
-                {/* Mobile Drawer Overlay */}
+                {/* Mobile/Tablet Drawer Overlay */}
                 {isDrawerOpen && (
-                    <div className="mobile-drawer-overlay" onClick={() => setIsDrawerOpen(false)} style={{
+                    <div className="mobile-drawer-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }} style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000,
                         backdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease-out'
                     }}>
@@ -383,9 +385,11 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     return (
         <header className="topbar">
             <div className="topbar-left">
-                <button className="sidebar-toggle" onClick={onToggleSidebar} title="Toggle Menu">
-                    <Menu size={20} />
-                </button>
+                {onToggleSidebar && (
+                    <button className="sidebar-toggle" onClick={onToggleSidebar} title="Toggle Menu">
+                        <Menu size={20} />
+                    </button>
+                )}
                 <div className="logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {storeDoc?.profile?.logo && (
                         <img 
