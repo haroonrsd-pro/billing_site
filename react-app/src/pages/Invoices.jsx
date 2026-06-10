@@ -345,6 +345,7 @@ export default function Invoices() {
             )}
 
             {/* Filters Row */}
+            {/* Filter Section Card */}
             <div className="glass shadow-premium" style={{ 
                 borderRadius: '16px', padding: '1rem', 
                 background: '#ffffff', 
