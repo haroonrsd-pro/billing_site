@@ -299,11 +299,11 @@ const AdminCoupons = () => {
                                             <td style={{ padding: '1.5rem 2rem' }}>
                                                 <div style={{ width: '150px' }}>
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-                                                        <span style={{ fontSize: '0.7rem', fontWeight: 900, color: theme.ink }}>{coupon.usageCount} / {coupon.maxUses}</span>
-                                                        <span style={{ fontSize: '0.7rem', fontWeight: 900, color: theme.accent }}>{Math.floor((coupon.usageCount/coupon.maxUses)*100)}%</span>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: 900, color: theme.ink }}>{coupon.usedCount || 0} / {coupon.usageLimit || 0}</span>
+                                                        <span style={{ fontSize: '0.7rem', fontWeight: 900, color: theme.accent }}>{coupon.usageLimit ? Math.floor(((coupon.usedCount || 0) / coupon.usageLimit) * 100) : 0}%</span>
                                                     </div>
                                                     <div style={{ height: '6px', background: '#f1f5f9', borderRadius: '10px', overflow: 'hidden' }}>
-                                                        <div style={{ height: '100%', width: `${(coupon.usageCount/coupon.maxUses)*100}%`, background: theme.accent, borderRadius: '10px' }} />
+                                                        <div style={{ height: '100%', width: `${coupon.usageLimit ? Math.min(100, ((coupon.usedCount || 0) / coupon.usageLimit) * 100) : 0}%`, background: theme.accent, borderRadius: '10px' }} />
                                                     </div>
                                                 </div>
                                             </td>

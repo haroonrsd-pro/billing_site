@@ -61,7 +61,7 @@ const AdminReports = () => {
                 franchiseStats[r.franchiseId] = { id: r.franchiseId, count: 0, totalDiscount: 0 };
             }
             franchiseStats[r.franchiseId].count += 1;
-            franchiseStats[r.franchiseId].totalDiscount += r.discountGiven;
+            franchiseStats[r.franchiseId].totalDiscount += (r.discountGiven || 0);
         });
 
         const topCoupons = Object.entries(couponCounts)
