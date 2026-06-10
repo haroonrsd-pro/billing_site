@@ -6,30 +6,41 @@ import { useDeviceType } from '../hooks/useDeviceType';
 
 export default function Layout() {
     const deviceType = useDeviceType();
-    const [sidebarCollapsed, setSidebarCollapsed] = useState(deviceType !== 'desktop');
+    // Initialize from localStorage or default based on device type
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+        const saved = localStorage.getItem('sidebarCollapsed');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
 
-    // Auto-collapse on mobile/tablet
     useEffect(() => {
-        setSidebarCollapsed(deviceType !== 'desktop');
+        const saved = localStorage.getItem('sidebarCollapsed');
+        if (saved === null) {
+            setSidebarCollapsed(deviceType !== 'desktop');
+        }
     }, [deviceType]);
 
     const toggleSidebar = () => {
-        setSidebarCollapsed(!sidebarCollapsed);
+        setSidebarCollapsed(prev => {
+            const next = !prev;
+            localStorage.setItem('sidebarCollapsed', JSON.stringify(next));
+            return next;
+        });
     };
 
     return (
         <div className={`app-container device-${deviceType}`}>
-            {/* Sidebar overlay for mobile/tablet */}
+            {/* Overlay when sidebar open on mobile/tablet */}
             {!sidebarCollapsed && deviceType !== 'desktop' && (
-                <div className="sidebar-overlay" onClick={toggleSidebar}></div>
+                <div className="sidebar-overlay" onClick={toggleSidebar} />
             )}
 
-            <Topbar toggleSidebar={toggleSidebar} />
+            {/* Pass correct prop name: Topbar uses onToggleSidebar */}
+            <Topbar onToggleSidebar={toggleSidebar} />
 
             <div className="app-body">
-                <Sidebar collapsed={sidebarCollapsed} />
+                <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
 
-                {/* Main Content Area */}
+                {/* main-content: margin matches sidebar width */}
                 <div className={`main-content ${sidebarCollapsed ? 'expanded' : ''} ${deviceType}-view`}>
                     <Outlet />
                 </div>

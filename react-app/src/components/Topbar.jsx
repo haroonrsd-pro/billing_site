@@ -29,7 +29,7 @@ import { signOut } from 'firebase/auth';
 export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { isMobile, isTablet, isDesktop } = useDevice();
+    const { isMobile, isTablet, isDesktop, isPortrait } = useDevice();
     const { docs: customers } = useFirestore('customers');
     const { docs: messages, addDocument } = useFirestore('messages');
 
@@ -224,13 +224,13 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
         </div>
     );
 
-    // MOBILE RENDER
-    if (isMobile) {
+    // MOBILE & TABLET RENDER
+    if (isMobile || isTablet) {
         return (
             <>
                 <header className="topbar mobile-topbar" style={{ height: '56px', background: 'white', boxShadow: '0 2px 10px rgba(0,0,0,0.05)', padding: '0 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div className="topbar-left">
-                        <button className="tb-icon-btn" onClick={() => setIsDrawerOpen(true)}>
+                        <button className="tb-icon-btn" onClick={(e) => { e.stopPropagation(); setIsDrawerOpen(true); }}>
                             <Menu size={24} color="#0f172a" />
                         </button>
                     </div>
@@ -258,9 +258,9 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
                     </div>
                 </header>
 
-                {/* Mobile Drawer Overlay */}
+                {/* Mobile/Tablet Drawer Overlay */}
                 {isDrawerOpen && (
-                    <div className="mobile-drawer-overlay" onClick={() => setIsDrawerOpen(false)} style={{
+                    <div className="mobile-drawer-overlay" onClick={(e) => { if (e.target === e.currentTarget) setIsDrawerOpen(false); }} style={{
                         position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 10000,
                         backdropFilter: 'blur(4px)', animation: 'fadeIn 0.2s ease-out'
                     }}>
@@ -301,94 +301,15 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
         );
     }
 
-    // TABLET RENDER
-    if (isTablet) {
-        return (
-            <header className="topbar tablet-topbar" style={{ height: '60px' }}>
-                <div className="topbar-left">
-                    <button className="sidebar-toggle" onClick={onToggleSidebar}>
-                        <Menu size={20} />
-                    </button>
-                    <div className="breadcrumb" style={{ marginLeft: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
-                        <span>Home</span>
-                        <ChevronRight size={14} />
-                        <span style={{ fontWeight: 700, color: 'var(--ink)' }}>{getPageTitle()}</span>
-                    </div>
-                </div>
-
-                <div className="topbar-right">
-                    <div className="topbar-search" style={{ width: '200px', background: 'var(--panel)', border: '1px solid var(--border)' }}>
-                        <input 
-                            type="text" 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && searchQuery.trim()) {
-                                    navigate('/invoices?search=' + encodeURIComponent(searchQuery.trim()));
-                                    setSearchQuery('');
-                                }
-                            }}
-                            placeholder="Search..." 
-                            style={{ fontSize: '0.85rem' }} 
-                        />
-                        <Search size={14} />
-                    </div>
-                    <div style={{ position: 'relative' }} ref={popupRef}>
-                        <button className="tb-icon-btn" onClick={toggleChat}>
-                            <Bell size={18} />
-                            {unreadCount > 0 && <span className="tb-badge">{unreadCount}</span>}
-                        </button>
-                        
-                        {/* Chat Popup */}
-                        {showChatPopup && (
-                            <div style={{
-                                position: 'absolute', top: '120%', right: '0', width: '350px', height: '400px',
-                                background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                                border: '1px solid var(--border)', zIndex: 1000, display: 'flex', flexDirection: 'column',
-                                overflow: 'hidden'
-                            }}>
-                                <div style={{ padding: '1rem', background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ fontWeight: 800, color: 'var(--ink)' }}>💬 Team Chat</div>
-                                    <button onClick={() => setShowChatPopup(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)' }}><X size={16} /></button>
-                                </div>
-                                <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', background: '#f8fafc' }}>
-                                    {sortedMessages.length === 0 ? (
-                                        <div style={{ textAlign: 'center', color: 'var(--muted)', marginTop: '2rem', fontSize: '0.85rem' }}>No messages yet</div>
-                                    ) : (
-                                        sortedMessages.map((msg) => {
-                                            const isMine = msg.senderRole === userRole;
-                                            return (
-                                                <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMine ? 'flex-end' : 'flex-start' }}>
-                                                    <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--muted)', marginBottom: '0.1rem', textTransform: 'capitalize' }}>{msg.senderRole}</div>
-                                                    <div style={{ background: isMine ? '#6366f1' : '#fff', color: isMine ? '#fff' : 'var(--ink)', padding: '0.6rem 0.8rem', borderRadius: isMine ? '12px 12px 0 12px' : '12px 12px 12px 0', fontSize: '0.85rem', border: isMine ? 'none' : '1px solid var(--border)', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', maxWidth: '85%' }}>
-                                                        {msg.text}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                    <div ref={messagesEndRef} />
-                                </div>
-                                <form onSubmit={handleSendMessage} style={{ padding: '0.8rem', background: '#fff', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
-                                    <input type="text" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} placeholder="Type a message..." style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '0.85rem' }} />
-                                    <button type="submit" style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center' }}><Send size={14} /></button>
-                                </form>
-                            </div>
-                        )}
-                    </div>
-                    <div className="tb-avatar" style={{ width: '32px', height: '32px' }}>{userRole.charAt(0).toUpperCase()}</div>
-                </div>
-            </header>
-        );
-    }
-
     // DESKTOP RENDER (Default)
     return (
         <header className="topbar">
             <div className="topbar-left">
-                <button className="sidebar-toggle" onClick={onToggleSidebar} title="Toggle Menu">
-                    <Menu size={20} />
-                </button>
+                {onToggleSidebar && (
+                    <button className="sidebar-toggle" onClick={onToggleSidebar} title="Toggle Menu">
+                        <Menu size={20} />
+                    </button>
+                )}
                 <div className="logo" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {storeDoc?.profile?.logo && (
                         <img 
