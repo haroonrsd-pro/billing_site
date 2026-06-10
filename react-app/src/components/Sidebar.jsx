@@ -1,12 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, FileText, Receipt, Book, Package, ShoppingCart, Users, BarChart2, Briefcase, FileDigit, Landmark, ShieldAlert, FileClock, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, FileText, Receipt, Book, Package, ShoppingCart, Users, BarChart2, Briefcase, FileDigit, Landmark, ShieldAlert, FileClock, LogOut, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { useFirestore } from '../hooks/useFirestore';
 import { auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import { useDevice } from '../context/DeviceContext';
 
-export default function Sidebar({ collapsed: propCollapsed }) {
+export default function Sidebar({ collapsed: propCollapsed, onToggleSidebar }) {
     const navigate = useNavigate();
     const { isMobile, isTablet, isPortrait } = useDevice();
     const [localCollapsed, setLocalCollapsed] = useState(false);
@@ -18,8 +18,16 @@ export default function Sidebar({ collapsed: propCollapsed }) {
         }
     }, [propCollapsed]);
 
-    // Force collapsed on tablet portrait
-    const isActuallyCollapsed = (isTablet && isPortrait) ? true : localCollapsed;
+    // Always respect the prop — don't hardcode portrait override
+    const isActuallyCollapsed = localCollapsed;
+
+    const handleToggle = () => {
+        if (onToggleSidebar) {
+            onToggleSidebar();
+        } else {
+            setLocalCollapsed(!localCollapsed);
+        }
+    };
 
     const { docs: customers } = useFirestore('customers');
     const getNavClass = ({ isActive }) => isActive ? "sb-item active" : "sb-item";
@@ -38,8 +46,8 @@ export default function Sidebar({ collapsed: propCollapsed }) {
         return count > 99 ? '99+' : count;
     }, [invoices]);
 
-    // HIDE ON MOBILE (BottomNav replaces it)
-    if (isMobile) return null;
+    // HIDE ON MOBILE & TABLET (BottomNav replaces it)
+    if (isMobile || isTablet) return null;
 
     const storeName = storeDoc?.profile?.businessName || 'My Food Store';
     const storeAddress = storeDoc?.profile?.address || 'Coimbatore, TN';
@@ -68,6 +76,28 @@ export default function Sidebar({ collapsed: propCollapsed }) {
                 overflowY: 'auto'
             }}
         >
+            {isTablet && (
+                <div className="sb-toggle-wrapper" style={{ display: 'flex', justifyContent: isActuallyCollapsed ? 'center' : 'flex-start', padding: '1rem 1.4rem', borderBottom: isActuallyCollapsed ? 'none' : '1px solid var(--border)' }}>
+                    <button 
+                        onClick={handleToggle} 
+                        className="sidebar-toggle"
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: 'var(--ink)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            padding: '0.3rem',
+                            borderRadius: '8px'
+                        }}
+                    >
+                        <Menu size={20} />
+                    </button>
+                </div>
+            )}
+
             <div className="sb-store" title={isActuallyCollapsed ? storeName : ''}>
                 <div className="sb-store-icon">
                     {storeDoc?.profile?.logo ? (
@@ -198,7 +228,7 @@ export default function Sidebar({ collapsed: propCollapsed }) {
                 {(!isTablet || !isPortrait) && (
                     <div 
                         className="sb-item toggle-item" 
-                        onClick={() => setLocalCollapsed(!localCollapsed)} 
+                        onClick={handleToggle} 
                         style={{ cursor: 'pointer', marginTop: '0.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem' }}
                     >
                         <span className="si-icon">

@@ -26,7 +26,7 @@ export function useFirestore(collectionName, options = {}) {
 
     const { limit: queryLimit, orderBy: queryOrderBy } = options;
 
-    const tenantCollections = ['credit_notes', 'salesOrders', 'expenses', 'products', 'customers', 'branches'];
+    const tenantCollections = ['credit_notes', 'salesOrders', 'expenses', 'products', 'customers', 'branches', 'categories'];
 
     const buildQuery = useCallback((isLoadMore = false) => {
         const currentCompanyId = sessionStorage.getItem('fb_user_company_id');
@@ -70,11 +70,14 @@ export function useFirestore(collectionName, options = {}) {
     useEffect(() => {
         setLoading(true);
         setError(null);
+        let unsubscribe = null;
+        let active = true;
 
         // If no limit is provided, keep the original real-time onSnapshot behavior
         if (!queryLimit) {
             const q = buildQuery();
-            const unsubscribe = onSnapshot(q, (snapshot) => {
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                if (!active) return;
                 const documents = [];
                 snapshot.forEach((doc) => {
                     documents.push({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) });
@@ -82,13 +85,74 @@ export function useFirestore(collectionName, options = {}) {
                 setDocs(documents);
                 setLoading(false);
                 setHasMore(false);
-            }, (err) => {
-                console.error(err);
-                setError(err.message);
-                setLoading(false);
+            }, async (err) => {
+                if (!active) return;
+                // Client-side fallback for missing index
+                if (err.code === 'failed-precondition' || err.message.includes('index')) {
+                    console.warn(`[useFirestore] Falling back to client-side filtering for collection "${collectionName}" due to missing index.`);
+                    try {
+                        const path = getFinalPath();
+                        const fallbackRef = collection(db, path);
+                        
+                        const unsubFallback = onSnapshot(fallbackRef, (snapshot) => {
+                            if (!active) return;
+                            let documents = [];
+                            snapshot.forEach((doc) => {
+                                documents.push({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) });
+                            });
+                            
+                            // 1. Filter manually
+                            const currentCompanyId = sessionStorage.getItem('fb_user_company_id');
+                            const role = sessionStorage.getItem('fb_user_role');
+                            const ownerId = sessionStorage.getItem('fb_user_owner_id') || sessionStorage.getItem('fb_user_uid');
+                            
+                            if (currentCompanyId && role !== 'superadmin' && tenantCollections.includes(collectionName)) {
+                                documents = documents.filter(d => d.companyId === currentCompanyId);
+                            }
+                            
+                            if (collectionName === 'users' && role !== 'superadmin' && ownerId) {
+                                documents = documents.filter(d => d.ownerId === ownerId);
+                            }
+                            
+                            // 2. Sort manually
+                            if (queryOrderBy) {
+                                const [field, order] = queryOrderBy;
+                                documents.sort((a, b) => {
+                                    const valA = a[field] || '';
+                                    const valB = b[field] || '';
+                                    return order === 'desc'
+                                        ? (valB > valA ? 1 : -1)
+                                        : (valA > valB ? 1 : -1);
+                                });
+                            }
+                            
+                            setDocs(documents);
+                            setLoading(false);
+                            setHasMore(false);
+                        }, (fallbackErr) => {
+                            if (!active) return;
+                            console.error("Fallback onSnapshot failed:", fallbackErr);
+                            setError(fallbackErr.message);
+                            setLoading(false);
+                        });
+                        
+                        unsubscribe = unsubFallback;
+                    } catch (fallbackErr) {
+                        console.error("Error setting up fallback onSnapshot:", fallbackErr);
+                        setError(err.message);
+                        setLoading(false);
+                    }
+                } else {
+                    console.error(err);
+                    setError(err.message);
+                    setLoading(false);
+                }
             });
 
-            return () => unsubscribe();
+            return () => {
+                active = false;
+                if (unsubscribe) unsubscribe();
+            };
         }
 
         // For paginated lists, we use getDocs to manage the cursor manually
@@ -96,6 +160,7 @@ export function useFirestore(collectionName, options = {}) {
             try {
                 const q = buildQuery();
                 const snapshot = await getDocs(q);
+                if (!active) return;
                 
                 const documents = [];
                 snapshot.forEach((doc) => {
@@ -107,13 +172,70 @@ export function useFirestore(collectionName, options = {}) {
                 setHasMore(snapshot.docs.length === queryLimit);
                 setLoading(false);
             } catch (err) {
-                console.error(err);
-                setError(err.message);
-                setLoading(false);
+                if (!active) return;
+                // Client-side fallback for missing index
+                if (err.code === 'failed-precondition' || err.message.includes('index')) {
+                    console.warn(`[useFirestore] Falling back to client-side filtering for paginated collection "${collectionName}" due to missing index.`);
+                    try {
+                        const path = getFinalPath();
+                        const fallbackRef = collection(db, path);
+                        const snapshot = await getDocs(fallbackRef);
+                        if (!active) return;
+                        
+                        let documents = [];
+                        snapshot.forEach((doc) => {
+                            documents.push({ id: doc.id, ...doc.data({ serverTimestamps: 'estimate' }) });
+                        });
+                        
+                        // 1. Filter manually
+                        const currentCompanyId = sessionStorage.getItem('fb_user_company_id');
+                        const role = sessionStorage.getItem('fb_user_role');
+                        const ownerId = sessionStorage.getItem('fb_user_owner_id') || sessionStorage.getItem('fb_user_uid');
+                        
+                        if (currentCompanyId && role !== 'superadmin' && tenantCollections.includes(collectionName)) {
+                            documents = documents.filter(d => d.companyId === currentCompanyId);
+                        }
+                        
+                        if (collectionName === 'users' && role !== 'superadmin' && ownerId) {
+                            documents = documents.filter(d => d.ownerId === ownerId);
+                        }
+                        
+                        // 2. Sort manually
+                        if (queryOrderBy) {
+                            const [field, order] = queryOrderBy;
+                            documents.sort((a, b) => {
+                                const valA = a[field] || '';
+                                const valB = b[field] || '';
+                                return order === 'desc'
+                                    ? (valB > valA ? 1 : -1)
+                                    : (valA > valB ? 1 : -1);
+                            });
+                        }
+                        
+                        // 3. Paginate manually
+                        const paginatedDocs = queryLimit ? documents.slice(0, queryLimit) : documents;
+                        
+                        setDocs(paginatedDocs);
+                        setLastDoc(null); // Pagination disabled in fallback mode
+                        setHasMore(false);
+                        setLoading(false);
+                    } catch (fallbackErr) {
+                        console.error(fallbackErr);
+                        setError(err.message);
+                        setLoading(false);
+                    }
+                } else {
+                    console.error(err);
+                    setError(err.message);
+                    setLoading(false);
+                }
             }
         };
 
         fetchFirstBatch();
+        return () => {
+            active = false;
+        };
     }, [collectionName, queryLimit, JSON.stringify(queryOrderBy)]); // Re-run on collection or query config change
 
     const loadMore = async () => {

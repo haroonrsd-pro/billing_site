@@ -236,32 +236,6 @@ export default function Invoices() {
                 </div>
             )}
 
-            {/* Performance Warning (Fallback Mode) */}
-            {!optimizationMetadata.isOptimized && (
-                <div style={{ 
-                    background: '#fffbeb', border: '1px solid #fef3c7', color: '#92400e', 
-                    padding: '1rem 1.5rem', borderRadius: '20px', marginBottom: '2rem',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    animation: 'slideIn 0.4s ease'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>⚡</span>
-                        <div>
-                            <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Running in Fallback Mode</div>
-                            <div style={{ fontSize: '0.8rem' }}>This filter combo is unoptimized. Create an index to improve speed.</div>
-                        </div>
-                    </div>
-                    {optimizationMetadata.indexLink && (
-                        <button 
-                            onClick={() => window.open(optimizationMetadata.indexLink, '_blank')}
-                            style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' }}
-                        >
-                            Create Index
-                        </button>
-                    )}
-                </div>
-            )}
-
             {/* Filter Section Card */}
             <div className="glass shadow-premium" style={{ 
                 borderRadius: '32px', padding: '2.5rem', 
