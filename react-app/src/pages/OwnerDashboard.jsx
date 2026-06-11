@@ -110,10 +110,12 @@ export default function OwnerDashboard() {
 
     const cityStatsWeb = useMemo(() => {
         const map = {};
-        branches.forEach(br => {
+        const brs = Array.isArray(branches) ? branches : [];
+        brs.forEach(br => {
+            if (!br || !br.city) return;
             if (!map[br.city]) map[br.city] = { count: 0, branches: [] };
             map[br.city].count++;
-            map[br.city].branches.push(br.name);
+            map[br.city].branches.push(br.name || 'Branch');
         });
         return Object.entries(map).sort((a, b) => b[1].count - a[1].count);
     }, [branches]);

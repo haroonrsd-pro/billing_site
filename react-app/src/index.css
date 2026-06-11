@@ -36,8 +36,8 @@
     --blue-bg: #dbeafe;
     --purple: #8b5cf6;
     --purple-bg: #ede9fe;
-    --sidebar-w: 248px;
-    --topbar-h: calc(54px + env(safe-area-inset-top, 0px));
+    --sidebar-w: 240px;
+    --topbar-h: 64px;
     --shadow: 0 2px 12px rgba(26, 17, 10, .08);
     --shadow2: 0 8px 32px rgba(26, 17, 10, .14);
     --zg-void: #03040a;
@@ -470,10 +470,10 @@ body {
     top: 0;
     right: 0;
     left: 0;
-    z-index: 900;
+    z-index: 1100;
     padding: 0 1.5rem;
     justify-content: space-between;
-    box-shadow: 0 2px 20px rgba(0, 0, 0, .3);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, .08);
     gap: .5rem
 }
 
@@ -655,7 +655,9 @@ body {
 .app-body {
     display: flex;
     margin-top: var(--topbar-h);
-    min-height: calc(100vh - var(--topbar-h))
+    min-height: calc(100vh - var(--topbar-h));
+    overflow-x: hidden;
+    position: relative;
 }
 
 /* SIDEBAR */
@@ -669,9 +671,12 @@ body {
     left: 0;
     bottom: 0;
     overflow-y: auto;
-    z-index: 1000;
-    transition: transform .28s ease;
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.1);
+    overflow-x: hidden;
+    z-index: 900;
+    transition: width 0.28s cubic-bezier(.4,0,.2,1), min-width 0.28s cubic-bezier(.4,0,.2,1);
+    box-shadow: 2px 0 16px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -683,8 +688,50 @@ body {
     border-radius: 10px
 }
 
+/* Desktop collapsed: icon-only strip (stays visible) */
 .sidebar.collapsed {
-    transform: translateX(-100%)
+    width: 72px;
+    min-width: 72px;
+}
+
+/* Collapsed — center the store icon */
+.sidebar.collapsed .sb-store {
+    justify-content: center;
+    padding: 1rem 0 .75rem;
+    gap: 0;
+}
+
+/* Collapsed — center nav items, hide text */
+.sidebar.collapsed .sb-item {
+    justify-content: center;
+    padding: .6rem 0;
+    border-left: 3px solid transparent;
+    gap: 0;
+}
+.sidebar.collapsed .sb-item.active {
+    border-left-color: var(--accent);
+}
+.sidebar.collapsed .sb-item .si-icon {
+    width: 100%;
+    text-align: center;
+    font-size: 1.1rem;
+}
+.sidebar.collapsed .sb-item .si-badge {
+    display: none;
+}
+
+/* Collapsed — hide dividers text labels */
+.sidebar.collapsed .sb-section-label {
+    display: none;
+}
+.sidebar.collapsed .sb-divider {
+    margin: .4rem .75rem;
+}
+
+/* Collapsed — hide toggle label text */
+.sidebar.collapsed .toggle-item {
+    justify-content: center;
+    padding: .6rem 0;
 }
 
 .sb-store {
@@ -798,16 +845,20 @@ body {
     border-top: 1px solid var(--border)
 }
 
-/* MAIN CONTENT */
+/* MAIN CONTENT — sidebar is position:fixed so we use margin-left to offset */
 .main-content {
     margin-left: var(--sidebar-w);
     flex: 1;
-    transition: margin-left .28s ease;
-    min-height: calc(100vh - var(--topbar-h))
+    min-width: 0;
+    transition: margin-left 0.28s cubic-bezier(.4,0,.2,1);
+    min-height: calc(100vh - var(--topbar-h));
+    box-sizing: border-box;
+    overflow-x: hidden;
 }
 
+/* Collapsed sidebar: shift content to match 72px icon strip */
 .main-content.expanded {
-    margin-left: 0
+    margin-left: 72px;
 }
 
 /* PAGE */
@@ -4588,33 +4639,50 @@ body {
 }
 
 @media (min-width: 768px) and (max-width: 1024px) {
-    :root {
+    .device-tablet.sidebar-collapsed {
         --sidebar-w: 80px;
     }
 
-    .device-tablet .sidebar {
-        width: var(--sidebar-w);
-        min-width: var(--sidebar-w);
+    .device-tablet.sidebar-expanded {
+        --sidebar-w: 240px;
     }
 
-    .device-tablet .sb-store-name,
-    .device-tablet .sb-store-sub,
-    .device-tablet .sb-section-label,
-    .device-tablet .sb-item span:not(.si-icon) {
+    /* Keep sidebar always visible on tablet, overriding translate rules */
+    .device-tablet .sidebar {
+        transform: translateX(0) !important;
+        transition: width 0.3s ease, min-width 0.3s ease;
+    }
+
+    /* Stylings when sidebar is collapsed on tablet */
+    .device-tablet.sidebar-collapsed .sb-store-name,
+    .device-tablet.sidebar-collapsed .sb-store-sub,
+    .device-tablet.sidebar-collapsed .sb-section-label,
+    .device-tablet.sidebar-collapsed .sb-item span:not(.si-icon) {
         display: none;
     }
 
-    .device-tablet .sb-item {
+    .device-tablet.sidebar-collapsed .sb-item {
         justify-content: center;
         padding: 1rem 0;
     }
 
+    /* Hide menu item icons completely on tablet in all states */
     .device-tablet .si-icon {
-        font-size: 1.5rem;
+        display: none !important;
     }
 
-    .device-tablet .main-content {
+    /* Hide store brand, dividers, and menu items when collapsed on tablet */
+    .device-tablet.sidebar-collapsed .sb-store,
+    .device-tablet.sidebar-collapsed .sb-divider,
+    .device-tablet.sidebar-collapsed .sb-item {
+        display: none !important;
+    }
+
+    /* Main content margin behavior for tablet */
+    .device-tablet .main-content,
+    .device-tablet .main-content.expanded {
         margin-left: var(--sidebar-w);
+        transition: margin-left 0.3s ease;
     }
 }
 
@@ -5656,28 +5724,7 @@ body {
     }
 }
 
-/* 8. SIDEBAR TRANSITIONS */
-.sidebar {
-    width: 240px;
-    transition: width 0.3s ease;
-    overflow: hidden;
-}
-
-.sidebar.collapsed {
-    width: 64px;
-    min-width: 64px;
-}
-
-.sidebar .nav-label {
-    transition: opacity 0.2s ease;
-}
-
-.sidebar.collapsed .nav-label {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
-    display: none;
-}
+/* 8. SIDEBAR TRANSITIONS — managed by main .sidebar rules above */
 
 /* 9. BOTTOM NAV */
 .bottom-nav {

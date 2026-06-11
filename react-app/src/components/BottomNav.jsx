@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Package, Receipt, BarChart2, Users, Store } from 'lucide-react';
+import { ShoppingCart, Package, Receipt, BarChart2, Users, Store, ChefHat } from 'lucide-react';
 
 /**
  * BottomNav Component
@@ -14,11 +14,17 @@ const BottomNav = () => {
 
   const navItems = [
     { label: 'Billing', icon: ShoppingCart, path: '/billing' },
-    { label: 'Stock', icon: Package, path: '/inventory' },
     { label: 'Invoices', icon: Receipt, path: '/invoices' },
-    { label: 'Reports', icon: BarChart2, path: '/reports' },
-    { label: 'Customers', icon: Users, path: '/customers' },
   ];
+
+  if (userRole === 'staff') {
+    navItems.push({ label: 'Kitchen', icon: ChefHat, path: '/kitchen' });
+    navItems.push({ label: 'Stock', icon: Package, path: '/inventory' });
+  } else {
+    navItems.push({ label: 'Stock', icon: Package, path: '/inventory' });
+    navItems.push({ label: 'Reports', icon: BarChart2, path: '/reports' });
+    navItems.push({ label: 'Customers', icon: Users, path: '/customers' });
+  }
 
   if (userRole === 'owner') {
       navItems.push({ label: 'Hub', icon: Store, path: '/inhouse-owner' });

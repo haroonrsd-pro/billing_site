@@ -1,16 +1,18 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Home, FileText, Receipt, Book, Package, ShoppingCart, Users, BarChart2, Briefcase, FileDigit, Landmark, ShieldAlert, FileClock, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Home, FileText, Receipt, Book, Package, ShoppingCart, Users, BarChart2, Briefcase, FileDigit, Landmark, ShieldAlert, FileClock, LogOut, ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { useFirestore } from '../hooks/useFirestore';
 import { auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
 import { useDevice } from '../context/DeviceContext';
 
-export default function Sidebar({ collapsed: propCollapsed }) {
+export default function Sidebar({ collapsed: propCollapsed, onToggle, style }) {
+export default function Sidebar({ collapsed: propCollapsed, onToggleSidebar }) {
     const navigate = useNavigate();
     const { isMobile, isTablet, isPortrait } = useDevice();
-    const [localCollapsed, setLocalCollapsed] = useState(false);
 
+    // Use parent prop directly to allow toggling on tablet views
+    const isActuallyCollapsed = propCollapsed ?? false;
     // Sync local state if prop changes, but prioritize tablet portrait rule
     useEffect(() => {
         if (propCollapsed !== undefined) {
@@ -18,8 +20,16 @@ export default function Sidebar({ collapsed: propCollapsed }) {
         }
     }, [propCollapsed]);
 
-    // Force collapsed on tablet portrait
-    const isActuallyCollapsed = (isTablet && isPortrait) ? true : localCollapsed;
+    // Always respect the prop — don't hardcode portrait override
+    const isActuallyCollapsed = localCollapsed;
+
+    const handleToggle = () => {
+        if (onToggleSidebar) {
+            onToggleSidebar();
+        } else {
+            setLocalCollapsed(!localCollapsed);
+        }
+    };
 
     const { docs: customers } = useFirestore('customers');
     const getNavClass = ({ isActive }) => isActive ? "sb-item active" : "sb-item";
@@ -38,8 +48,8 @@ export default function Sidebar({ collapsed: propCollapsed }) {
         return count > 99 ? '99+' : count;
     }, [invoices]);
 
-    // HIDE ON MOBILE (BottomNav replaces it)
-    if (isMobile) return null;
+    // HIDE ON MOBILE & TABLET (BottomNav replaces it)
+    if (isMobile || isTablet) return null;
 
     const storeName = storeDoc?.profile?.businessName || 'My Food Store';
     const storeAddress = storeDoc?.profile?.address || 'Coimbatore, TN';
@@ -56,18 +66,37 @@ export default function Sidebar({ collapsed: propCollapsed }) {
         }
     };
 
+    const isDrawerMode = isTablet;
+
     return (
         <nav 
-            className={`sidebar ${isActuallyCollapsed ? 'collapsed' : ''}`} 
+            className={`sidebar ${isActuallyCollapsed ? 'collapsed' : ''} ${isDrawerMode ? 'sidebar-drawer' : ''}`} 
             id="sidebar" 
             role="navigation"
-            style={{ 
-                width: isActuallyCollapsed ? '64px' : '240px',
-                transition: 'width 0.3s ease',
-                overflowX: 'hidden',
-                overflowY: 'auto'
-            }}
+            style={style}
         >
+            {isTablet && (
+                <div className="sb-toggle-wrapper" style={{ display: 'flex', justifyContent: isActuallyCollapsed ? 'center' : 'flex-start', padding: '1rem 1.4rem', borderBottom: isActuallyCollapsed ? 'none' : '1px solid var(--border)' }}>
+                    <button 
+                        onClick={handleToggle} 
+                        className="sidebar-toggle"
+                        style={{ 
+                            background: 'none', 
+                            border: 'none', 
+                            cursor: 'pointer', 
+                            color: 'var(--ink)', 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center',
+                            padding: '0.3rem',
+                            borderRadius: '8px'
+                        }}
+                    >
+                        <Menu size={20} />
+                    </button>
+                </div>
+            )}
+
             <div className="sb-store" title={isActuallyCollapsed ? storeName : ''}>
                 <div className="sb-store-icon">
                     {storeDoc?.profile?.logo ? (
@@ -108,6 +137,20 @@ export default function Sidebar({ collapsed: propCollapsed }) {
                 <NavLink to="/credit-notes" className={getNavClass} title={isActuallyCollapsed ? "Credit Notes" : ""}>
                     <span className="si-icon">↩️</span> {!isActuallyCollapsed && "Credit Notes"}
                 </NavLink>
+            </div>
+
+            <hr className="sb-divider" />
+
+            <div className="sb-section">
+                {!isActuallyCollapsed && <div className="sb-section-label">Dine-In & QR Orders</div>}
+                <NavLink to="/kitchen" className={getNavClass} title={isActuallyCollapsed ? "Kitchen Display" : ""}>
+                    <span className="si-icon">👨‍🍳</span> {!isActuallyCollapsed && "Kitchen Display"}
+                </NavLink>
+                {(userRole === 'owner' || userRole === 'admin') && (
+                    <NavLink to="/tables" className={getNavClass} title={isActuallyCollapsed ? "Table QR Codes" : ""}>
+                        <span className="si-icon">🍽️</span> {!isActuallyCollapsed && "Table QR Codes"}
+                    </NavLink>
+                )}
             </div>
 
             <hr className="sb-divider" />
@@ -194,11 +237,12 @@ export default function Sidebar({ collapsed: propCollapsed }) {
                     <span className="si-icon"><LogOut size={16} /></span> {!isActuallyCollapsed && "Logout"}
                 </div>
                 
-                {/* Toggle button for tablets/desktop (hidden on mobile via the return null above) */}
-                {(!isTablet || !isPortrait) && (
+                {/* Toggle button — calls parent's onToggle, hidden on tablet portrait */}
+                {(!isTablet || !isPortrait) && onToggle && (
                     <div 
                         className="sb-item toggle-item" 
-                        onClick={() => setLocalCollapsed(!localCollapsed)} 
+                        onClick={onToggle}
+                        onClick={handleToggle} 
                         style={{ cursor: 'pointer', marginTop: '0.5rem', borderTop: '1px solid #f1f5f9', paddingTop: '0.5rem' }}
                     >
                         <span className="si-icon">

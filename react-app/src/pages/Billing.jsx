@@ -5,6 +5,7 @@ import { useMessaging } from '../context/MessagingContext';
 import { StandardTemplate, ElegantTemplate, ThermalTemplate } from '../components/InvoiceTemplates';
 import PrintWrapper from '../components/PrintWrapper';
 import { db } from '../firebaseConfig';
+import { collection, doc, updateDoc, onSnapshot, query, where } from 'firebase/firestore';
 import {
     ArrowLeft,
     Search,
@@ -29,12 +30,13 @@ import CouponSection from '../components/billing/CouponSection';
 import '../invoices.css';
 import './premium_pos.css';
 
-// AI Gallery — 17 high-quality AI-generated food images with keyword tags for auto-matching
+// AI Gallery — 18 high-quality AI-generated food images with keyword tags for auto-matching
 const AI_GALLERY = [
     { name: 'Biryani', src: '/food-images/chicken_biryani.png', tags: ['biryani', 'chicken biryani', 'mutton biryani', 'dum biryani', 'hyderabadi'] },
     { name: 'Veg Rice', src: '/food-images/veg_biryani.png', tags: ['veg biryani', 'veg rice', 'pulao', 'vegetable rice', 'jeera rice'] },
     { name: 'Paneer', src: '/food-images/paneer_masala.png', tags: ['paneer', 'paneer masala', 'paneer butter', 'shahi paneer', 'kadai paneer', 'palak paneer'] },
-    { name: 'Naan', src: '/food-images/butter_naan.png', tags: ['naan', 'butter naan', 'garlic naan', 'cheese naan', 'tandoori roti', 'roti', 'bread'] },
+    { name: 'Naan', src: '/food-images/butter_naan.png', tags: ['naan', 'butter naan', 'garlic naan', 'cheese naan', 'tandoori roti', 'bread'] },
+    { name: 'Chappathi', src: '/food-images/chappathi.png', tags: ['chappathi', 'chapathi', 'chapati', 'roti', 'phulka', 'pulka'] },
     { name: 'Chicken 65', src: '/food-images/chicken_65.png', tags: ['chicken 65', 'chicken fry', 'chicken starter', 'fried chicken', 'wings'] },
     { name: 'Lassi', src: '/food-images/mango_lassi.png', tags: ['lassi', 'mango lassi', 'sweet lassi', 'buttermilk', 'chaas', 'milkshake', 'smoothie'] },
     { name: 'Dessert', src: '/food-images/gulab_jamun.png', tags: ['gulab jamun', 'dessert', 'sweet', 'rasgulla', 'jalebi', 'halwa', 'kheer'] },
@@ -77,14 +79,74 @@ const getItemImage = (item) => item.img || findBestMatch(item.name) || null;
 
 // Hardcoded initial menu items ported from the original script.js
 const initialMenuItems = [
-    { id: 1, name: 'Chicken Biryani', cat: 'rice', type: 'nveg', price: 180, cost: 90, stock: 50, unit: 'plate', low: 5, img: '/food-images/chicken_biryani.png' },
-    { id: 2, name: 'Veg Biryani', cat: 'rice', type: 'veg', price: 130, cost: 60, stock: 40, unit: 'plate', low: 5, img: '/food-images/veg_biryani.png' },
-    { id: 3, name: 'Paneer Butter Masala', cat: 'curries', type: 'veg', price: 160, cost: 70, stock: 30, unit: 'bowl', low: 5, img: '/food-images/paneer_masala.png' },
-    { id: 4, name: 'Butter Naan', cat: 'breads', type: 'veg', price: 30, cost: 10, stock: 100, unit: 'piece', low: 10, img: '/food-images/butter_naan.png' },
-    { id: 5, name: 'Chicken 65', cat: 'starters', type: 'nveg', price: 200, cost: 100, stock: 25, unit: 'plate', low: 5, img: '/food-images/chicken_65.png' },
-    { id: 6, name: 'Mango Lassi', cat: 'drinks', type: 'veg', price: 60, cost: 20, stock: 60, unit: 'glass', low: 10, img: '/food-images/mango_lassi.png' },
-    { id: 7, name: 'Gulab Jamun', cat: 'desserts', type: 'veg', price: 50, cost: 15, stock: 80, unit: 'piece', low: 10, img: '/food-images/gulab_jamun.png' },
-    { id: 8, name: 'Samosa', cat: 'snacks', type: 'veg', price: 20, cost: 8, stock: 3, unit: 'piece', low: 5, img: '/food-images/samosa.png' }
+    // Waffles / Pancakes
+    { id: 1,  name: 'Belgian Waffle',       cat: 'waffles',    type: 'veg', price: 149, cost: 60, stock: 50, unit: 'plate', low: 5 },
+    { id: 2,  name: 'Nutella Waffle',        cat: 'waffles',    type: 'veg', price: 179, cost: 70, stock: 50, unit: 'plate', low: 5 },
+    { id: 3,  name: 'Honey + Butter Waffle', cat: 'waffles',    type: 'veg', price: 139, cost: 55, stock: 50, unit: 'plate', low: 5 },
+    { id: 4,  name: 'Choco Pancake',         cat: 'waffles',    type: 'veg', price: 129, cost: 50, stock: 50, unit: 'plate', low: 5 },
+    // Chocolates
+    { id: 5,  name: 'Belgian Choco Milk',    cat: 'chocolates', type: 'veg', price: 199, cost: 90, stock: 40, unit: 'cup',   low: 5 },
+    { id: 6,  name: 'Belgian Choco Dark',    cat: 'chocolates', type: 'veg', price: 199, cost: 90, stock: 40, unit: 'cup',   low: 5 },
+    { id: 7,  name: 'Choco Eclairs',         cat: 'chocolates', type: 'veg', price: 149, cost: 60, stock: 30, unit: 'piece', low: 5 },
+    { id: 8,  name: 'Cookies & Cream',       cat: 'chocolates', type: 'veg', price: 179, cost: 70, stock: 30, unit: 'cup',   low: 5 },
+    { id: 9,  name: 'Crunchy Biscoff',       cat: 'chocolates', type: 'veg', price: 189, cost: 80, stock: 30, unit: 'cup',   low: 5 },
+    { id: 10, name: 'Crunchy Ferrero',       cat: 'chocolates', type: 'veg', price: 219, cost: 95, stock: 30, unit: 'cup',   low: 5 },
+    { id: 11, name: 'Crunchy KitKat',        cat: 'chocolates', type: 'veg', price: 209, cost: 90, stock: 30, unit: 'cup',   low: 5 },
+    { id: 12, name: 'Nutty Nutella',         cat: 'chocolates', type: 'veg', price: 189, cost: 80, stock: 30, unit: 'cup',   low: 5 },
+    { id: 13, name: 'Dark & White Choco',    cat: 'chocolates', type: 'veg', price: 199, cost: 85, stock: 30, unit: 'cup',   low: 5 },
+    { id: 14, name: 'Overloaded Chocolate',  cat: 'chocolates', type: 'veg', price: 229, cost: 100,stock: 25, unit: 'cup',   low: 5 },
+    { id: 15, name: 'Creamy Snickers',       cat: 'chocolates', type: 'veg', price: 219, cost: 95, stock: 25, unit: 'cup',   low: 5 },
+    { id: 16, name: 'Loaded Almonds',        cat: 'chocolates', type: 'veg', price: 209, cost: 90, stock: 25, unit: 'cup',   low: 5 },
+    // Coffee
+    { id: 17, name: 'Classic Espresso',      cat: 'coffee',     type: 'veg', price: 99,  cost: 30, stock: 60, unit: 'cup',   low: 10 },
+    { id: 18, name: 'Cold Coffee',           cat: 'coffee',     type: 'veg', price: 129, cost: 45, stock: 60, unit: 'cup',   low: 10 },
+    { id: 19, name: 'Mocha Latte',           cat: 'coffee',     type: 'veg', price: 149, cost: 55, stock: 60, unit: 'cup',   low: 10 },
+    // Ice Cream
+    { id: 20, name: 'Vanilla Scoops',        cat: 'icecream',   type: 'veg', price: 79,  cost: 25, stock: 80, unit: 'scoop', low: 10 },
+    { id: 21, name: 'Choco Fudge Ice Cream', cat: 'icecream',   type: 'veg', price: 99,  cost: 35, stock: 80, unit: 'scoop', low: 10 },
+    // Milkshakes
+    { id: 22, name: 'Choco Milkshake',       cat: 'milkshakes', type: 'veg', price: 149, cost: 55, stock: 50, unit: 'glass', low: 5 },
+    { id: 23, name: 'Oreo Milkshake',        cat: 'milkshakes', type: 'veg', price: 159, cost: 60, stock: 50, unit: 'glass', low: 5 },
+    { id: 24, name: 'Strawberry Shake',      cat: 'milkshakes', type: 'veg', price: 149, cost: 55, stock: 50, unit: 'glass', low: 5 },
+    // Special Combos
+    { id: 25, name: 'Waffle + Shake Combo',  cat: 'combos',     type: 'veg', price: 279, cost: 120,stock: 20, unit: 'set',   low: 5 },
+    { id: 26, name: 'Choco + Coffee Combo',  cat: 'combos',     type: 'veg', price: 299, cost: 130,stock: 20, unit: 'set',   low: 5 },
+    // Add-ons
+    { id: 27, name: 'Extra Choco Sauce',     cat: 'addons',     type: 'veg', price: 29,  cost: 8,  stock: 100,unit: 'portion',low: 10 },
+    { id: 28, name: 'Extra Nuts',            cat: 'addons',     type: 'veg', price: 39,  cost: 12, stock: 100,unit: 'portion',low: 10 },
+    { id: 29, name: 'Whipped Cream',         cat: 'addons',     type: 'veg', price: 29,  cost: 8,  stock: 100,unit: 'portion',low: 10 },
+    // Beverages
+    { id: 30, name: 'Mineral Water',         cat: 'beverages',  type: 'veg', price: 20,  cost: 8,  stock: 100,unit: 'bottle', low: 20 },
+    { id: 31, name: 'Fresh Lime Soda',       cat: 'beverages',  type: 'veg', price: 59,  cost: 18, stock: 80, unit: 'glass',  low: 10 },
+];
+
+// Default seed categories for empty/loading databases
+const defaultSeedCategories = [
+    { id: 'rice', name: 'Rice & Biryani', icon: '🍛', status: 'active', order: 1, subcategories: [] },
+    { id: 'breads', name: 'Breads', icon: '🫓', status: 'active', order: 2, subcategories: [] },
+    { id: 'curries', name: 'Curries', icon: '🍲', status: 'active', order: 3, subcategories: [] },
+    { id: 'starters', name: 'Starters', icon: '🍗', status: 'active', order: 4, subcategories: [] },
+    { id: 'waffles', name: 'Waffles & Pancakes', icon: '🧇', status: 'active', order: 5, subcategories: [
+        { id: 'sub_1', name: 'Chocolate Series', order: 1 },
+        { id: 'sub_2', name: 'Nutella Series', order: 2 },
+        { id: 'sub_3', name: 'Premium Series', order: 3 }
+    ] },
+    { id: 'chocolates', name: 'Chocolates', icon: '🍫', status: 'active', order: 6, subcategories: [] },
+    { id: 'coffee', name: 'Coffee', icon: '☕', status: 'active', order: 7, subcategories: [
+        { id: 'sub_4', name: 'Hot Coffee', order: 1 },
+        { id: 'sub_5', name: 'Cold Coffee', order: 2 }
+    ] },
+    { id: 'icecream', name: 'Ice Cream', icon: '🍨', status: 'active', order: 8, subcategories: [] },
+    { id: 'milkshakes', name: 'Milkshakes', icon: '🥤', status: 'active', order: 9, subcategories: [
+        { id: 'sub_6', name: 'Chocolate Shakes', order: 1 },
+        { id: 'sub_7', name: 'Fruit Shakes', order: 2 }
+    ] },
+    { id: 'combos', name: 'Special Combos', icon: '🎁', status: 'active', order: 10, subcategories: [] },
+    { id: 'drinks', name: 'Drinks', icon: '🥛', status: 'active', order: 11, subcategories: [] },
+    { id: 'desserts', name: 'Desserts', icon: '🍰', status: 'active', order: 12, subcategories: [] },
+    { id: 'snacks', name: 'Snacks', icon: '🥟', status: 'active', order: 13, subcategories: [] },
+    { id: 'beverages', name: 'Beverages', icon: '🧃', status: 'active', order: 14, subcategories: [] },
+    { id: 'addons', name: 'Add-ons', icon: '✨', status: 'active', order: 15, subcategories: [] }
 ];
 
 export default function Billing() {
@@ -95,9 +157,11 @@ export default function Billing() {
     const { docs: firestoreProducts, updateDocument: updateProduct } = useFirestore('products');
     const { docs: customers } = useFirestore('customers');
     const { updateDocument: updateCoupon } = useFirestore('coupons');
+    const { docs: categories } = useFirestore('categories');
 
     const { isMobile, isTablet, isDesktop, isTouchDevice } = useDevice();
     const [cartExpanded, setCartExpanded] = useState(false);
+    const [quickOrderMode, setQuickOrderMode] = useState(true); // default ON for tablet
 
     const [isMobileOrTablet, setIsMobileOrTablet] = useState(window.innerWidth < 1024);
 
@@ -114,28 +178,58 @@ export default function Billing() {
     const userRole = (sessionStorage.getItem('fb_user_role') || '').toLowerCase();
     const userBranchId = sessionStorage.getItem('fb_user_branch_id') || 'main';
     
-    // Auto-filter products by branch and sort by creation date (desc)
+    // Franchise Session Info (Using existing userRole and userStation from above)
+    const [selectedBranchName, setSelectedBranchName] = useState(userStation);
+    const [selectedBranchId, setSelectedBranchId] = useState(userBranchId);
+    const { docs: branches } = useFirestore('branches');
+    
+    // Auto-filter products by selected branch and sort by creation date (desc)
     const menuItems = useMemo(() => {
         const source = (firestoreProducts && Array.isArray(firestoreProducts) && firestoreProducts.length > 0) 
             ? firestoreProducts 
             : initialMenuItems;
         
-        const filtered = userRole === 'owner' 
-            ? source 
-            : source.filter(p => p && ((!p.branch_id && !p.branch) || (p.branch_id === userBranchId) || (!p.branch_id && (p.branch === userStation))));
+        // Cashiers and customers see identical active items filtered by active branch context
+        const filtered = source.filter(p => p && (
+            (!p.branch_id && !p.branch) || 
+            (p.branch_id === selectedBranchId) || 
+            (!p.branch_id && (p.branch === selectedBranchName))
+        ));
             
         return [...filtered].sort((a, b) => {
             const dateA = new Date(a?.createdAt || 0);
             const dateB = new Date(b?.createdAt || 0);
             return dateB - dateA;
         });
-    }, [firestoreProducts, userStation, userRole, userBranchId]);
+    }, [firestoreProducts, selectedBranchName, selectedBranchId]);
 
     const [cart, setCart] = useState([]);
 
+
+
     // UI Filter State
     const [currentCat, setCurrentCat] = useState('all');
+    const [currentSubCat, setCurrentSubCat] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
+
+    const activeCategories = useMemo(() => {
+        const sourceCats = (categories && Array.isArray(categories) && categories.length > 0)
+            ? categories
+            : defaultSeedCategories;
+        const sorted = [...sourceCats]
+            .filter(c => c.status === 'active')
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+        return [{ id: 'all', name: 'All Items', icon: '🍽️', subcategories: [] }, ...sorted];
+    }, [categories]);
+
+    const selectedCategoryObj = useMemo(() => {
+        return activeCategories.find(c => c.id === currentCat);
+    }, [activeCategories, currentCat]);
+
+    // Reset subcategory when category changes
+    useEffect(() => {
+        setCurrentSubCat('all');
+    }, [currentCat]);
 
     // Cart Adjustment State - Dynamically synced with system settings
     const [taxPct, setTaxPct] = useState(5);
@@ -166,10 +260,49 @@ export default function Billing() {
     const [invType] = useState('Standard');
     const [paymentMethod, setPaymentMethod] = useState('Cash');
 
-    // Franchise Session Info (Using existing userRole and userStation from above)
-    const [selectedBranchName, setSelectedBranchName] = useState(userStation);
-    const [selectedBranchId, setSelectedBranchId] = useState(userBranchId);
-    const { docs: branches } = useFirestore('branches');
+    // Table QR Order State
+    const ownerId = sessionStorage.getItem('fb_user_owner_id') || sessionStorage.getItem('fb_user_uid');
+    const [tableOrders, setTableOrders] = useState([]);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [activeTableOrderId, setActiveTableOrderId] = useState(null);
+    const [activeTableId, setActiveTableId] = useState(null);
+
+    useEffect(() => {
+        if (!ownerId) return;
+        const ordersPath = `owners/${ownerId}/branches/${selectedBranchId}/orders`;
+        const q = query(
+            collection(db, ordersPath),
+            where('status', 'in', ['new', 'preparing', 'ready', 'served'])
+        );
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setTableOrders(list.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
+        });
+        return unsubscribe;
+    }, [ownerId, selectedBranchId]);
+
+    const handleImportTableOrder = (tableOrder) => {
+        const newCart = tableOrder.items.map(item => {
+            const menuItem = menuItems.find(m => m.id === item.productId || m.name === item.name);
+            return {
+                id: item.productId,
+                name: item.name,
+                qty: item.qty,
+                price: item.price,
+                cost: menuItem?.cost || 0,
+                stock: menuItem?.stock || 100,
+                unit: menuItem?.unit || 'pcs',
+                cat: item.cat || menuItem?.cat || '',
+                type: item.type || menuItem?.type || 'veg',
+                img: menuItem?.img || ''
+            };
+        });
+        setCart(newCart);
+        setActiveTableOrderId(tableOrder.id);
+        setActiveTableId(tableOrder.tableId);
+        showToast(`Imported ${tableOrder.tableName} order!`, 'success');
+        setShowImportModal(false);
+    };
 
     // New Coupon System
     const { 
@@ -193,13 +326,14 @@ export default function Billing() {
         return menuItems.filter(it => {
             if (!it) return false;
             if (parseInt(it.stock, 10) <= 0) return false; // Hide out of stock items
-            const matchCat = currentCat === 'all' || it.cat === currentCat;
+            const matchCat = currentCat === 'all' || it.categoryId === currentCat || it.cat === currentCat;
+            const matchSubCat = currentSubCat === 'all' || it.subcategoryId === currentSubCat;
             const name = String(it.name || '').toLowerCase();
             const search = String(searchTerm || '').toLowerCase();
             const matchSearch = name.includes(search);
-            return matchCat && matchSearch;
+            return matchCat && matchSubCat && matchSearch;
         });
-    }, [menuItems, currentCat, searchTerm]);
+    }, [menuItems, currentCat, currentSubCat, searchTerm]);
 
 
     // Dynamic and unique invoice number based on store settings
@@ -316,7 +450,10 @@ export default function Billing() {
             paymentMethod,
             branch: selectedBranchName,
             branchId: selectedBranchId,
-            appliedCoupon: appliedCoupon ? { ...appliedCoupon } : null
+            appliedCoupon: appliedCoupon ? { ...appliedCoupon } : null,
+            activeTableOrderId,
+            activeTableId,
+            ownerId
         };
         
         setPrintSnapshot(snapshot);
@@ -409,12 +546,31 @@ export default function Billing() {
             });
 
             // 5. Inventory Deductions
-            for (const item of snapshot.cart) {
-                const productData = firestoreProducts.find(p => p.id === item.id);
-                if (productData) {
-                    const currentStock = parseInt(productData.stock, 10) || 0;
-                    const newStock = Math.max(0, currentStock - item.qty);
-                    await updateProduct(item.id, { stock: newStock });
+            if (!snapshot.activeTableOrderId) {
+                for (const item of snapshot.cart) {
+                    const productData = firestoreProducts.find(p => p.id === item.id);
+                    if (productData) {
+                        const currentStock = parseInt(productData.stock, 10) || 0;
+                        const newStock = Math.max(0, currentStock - item.qty);
+                        await updateProduct(item.id, { stock: newStock });
+                    }
+                }
+            }
+
+            // 6. Complete Table Order if imported
+            if (snapshot.activeTableOrderId && snapshot.activeTableId) {
+                const ordersPath = `owners/${snapshot.ownerId}/branches/${snapshot.branchId}/orders`;
+                const tablesPath = `owners/${snapshot.ownerId}/branches/${snapshot.branchId}/tables/${snapshot.activeTableId}`;
+                try {
+                    await updateDoc(doc(db, ordersPath, snapshot.activeTableOrderId), {
+                        status: 'completed',
+                        updatedAt: new Date().toISOString()
+                    });
+                    await updateDoc(doc(db, tablesPath), {
+                        status: 'available'
+                    });
+                } catch (tableErr) {
+                    console.error("Error completing table order:", tableErr);
                 }
             }
 
@@ -425,6 +581,8 @@ export default function Billing() {
             removeCoupon();
             setShowPrintModal(false);
             setPrintSnapshot(null);
+            setActiveTableOrderId(null);
+            setActiveTableId(null);
 
         } catch (err) {
             console.error("Firestore Commit Error:", err);
@@ -432,13 +590,16 @@ export default function Billing() {
         } finally {
             setIsPrinting(false);
         }
-    }, [addDocument, updateCoupon, addCreditNote, addSalesOrder, updateProduct, firestoreProducts, selectedDesign, couponDiscount, showToast, removeCoupon]);
+    }, [addDocument, updateCoupon, addCreditNote, addSalesOrder, updateProduct, firestoreProducts, selectedDesign, couponDiscount, showToast, removeCoupon, setActiveTableOrderId, setActiveTableId]);
 
     /**
      * handleConfirmPrint - Triggers the native print dialog and commits the transaction.
      */
     const handleConfirmPrint = async (passedSnapshot = null) => {
-        const theSnapshot = passedSnapshot || printSnapshot;
+        // Guard: If passedSnapshot is a React Event object, ignore it and use the state printSnapshot.
+        const theSnapshot = (passedSnapshot && typeof passedSnapshot === 'object' && 'invoiceNo' in passedSnapshot)
+            ? passedSnapshot
+            : printSnapshot;
         if (!theSnapshot) return showToast("No snapshot available.", "error");
 
         if (Capacitor.isNativePlatform()) {
@@ -555,37 +716,49 @@ export default function Billing() {
                                 <h1 style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--premium-text-main)' }}>Menu</h1>
                                 <p style={{ color: 'var(--premium-text-muted)', fontWeight: '600' }}>Choose from our wide variety of dishes</p>
                             </div>
-                            <div className="premium-search" style={{ position: 'relative', width: '300px' }}>
-                                <Search style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: 'var(--premium-text-muted)' }} size={20} />
-                                <input 
-                                    type="text" 
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                    placeholder="Search food..." 
-                                    style={{ 
-                                        width: '100%', 
-                                        padding: '12px 12px 12px 45px', 
-                                        borderRadius: '100px', 
-                                        border: '1.5px solid var(--premium-border)',
-                                        outline: 'none',
-                                        fontSize: '1rem',
-                                        fontWeight: '600'
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <button 
+                                    onClick={() => setShowImportModal(true)}
+                                    style={{
+                                        marginRight: '1rem',
+                                        background: 'rgba(232, 93, 4, 0.1)',
+                                        color: '#e85d04',
+                                        border: '1.5px solid rgba(232, 93, 4, 0.2)',
+                                        padding: '10px 18px',
+                                        borderRadius: '100px',
+                                        fontWeight: '700',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
                                     }}
-                                />
+                                >
+                                    📥 Import Table Order {tableOrders.length > 0 && <span style={{ background: '#e85d04', color: '#fff', fontSize: '0.75rem', padding: '2px 6px', borderRadius: '50%' }}>{tableOrders.length}</span>}
+                                </button>
+                                <div className="premium-search" style={{ position: 'relative', width: '300px' }}>
+                                    <Search style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: 'var(--premium-text-muted)' }} size={20} />
+                                    <input 
+                                        type="text" 
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Search food..." 
+                                        style={{ 
+                                            width: '100%', 
+                                            padding: '12px 12px 12px 45px', 
+                                            borderRadius: '100px', 
+                                            border: '1.5px solid var(--premium-border)',
+                                            outline: 'none',
+                                            fontSize: '1rem',
+                                            fontWeight: '600'
+                                        }}
+                                    />
+                                </div>
                             </div>
                         </div>
 
                         {/* Premium Category Strip */}
-                        <div className="premium-cat-strip">
-                            {[
-                                { id: 'all', name: 'All', icon: '🍽️' },
-                                { id: 'rice', name: 'Rice', icon: '🍚' },
-                                { id: 'starters', name: 'Starters', icon: '🍗' },
-                                { id: 'breads', name: 'Breads', icon: '🫓' },
-                                { id: 'curries', name: 'Curries', icon: '🍛' },
-                                { id: 'drinks', name: 'Drinks', icon: '🥤' },
-                                { id: 'desserts', name: 'Desserts', icon: '🍮' }
-                            ].map(cat => (
+                        <div className="premium-cat-strip" style={{ marginBottom: selectedCategoryObj?.subcategories?.length > 0 ? '0.75rem' : '2rem' }}>
+                            {activeCategories.map(cat => (
                                 <button
                                     key={cat.id}
                                     className={`premium-cat-pill ${currentCat === cat.id ? 'active' : ''}`}
@@ -595,6 +768,30 @@ export default function Billing() {
                                 </button>
                             ))}
                         </div>
+
+                        {/* Premium Subcategory Strip */}
+                        {selectedCategoryObj?.subcategories?.length > 0 && (
+                            <div className="premium-subcat-strip">
+                                <button
+                                    className={`premium-subcat-pill ${currentSubCat === 'all' ? 'active' : ''}`}
+                                    onClick={() => setCurrentSubCat('all')}
+                                >
+                                    All
+                                </button>
+                                {[...selectedCategoryObj.subcategories]
+                                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                    .map(sub => (
+                                        <button
+                                            key={sub.id}
+                                            className={`premium-subcat-pill ${currentSubCat === sub.id ? 'active' : ''}`}
+                                            onClick={() => setCurrentSubCat(sub.id)}
+                                        >
+                                            {sub.name}
+                                        </button>
+                                    ))
+                                }
+                            </div>
+                        )}
 
                         <div className="pos-menu-scroll">
                             <div className="premium-food-grid adaptive-grid">
@@ -791,7 +988,7 @@ export default function Billing() {
                             </div>
                             <div className="invoice-modal-footer">
                                 <button className="btn btn-outline" onClick={() => setShowPrintModal(false)}>Cancel</button>
-                                <button className="btn btn-primary" onClick={handleConfirmPrint}>Confirm & Print</button>
+                                <button className="btn btn-primary" onClick={() => handleConfirmPrint()}>Confirm & Print</button>
                             </div>
                         </div>
                     </div>
@@ -802,7 +999,21 @@ export default function Billing() {
     }
 
     return (
-        <div className="page active" id="page-billing" style={{ background: '#f8fafc' }}>
+        <div
+            className="page active"
+            id="page-billing"
+            style={{
+                background: '#f8fafc',
+                ...(isTablet && quickOrderMode ? {
+                    display: 'flex',
+                    flexDirection: 'column',
+                    flex: 1,
+                    minHeight: 0,
+                    overflow: 'hidden',
+                    padding: 0
+                } : {})
+            }}
+        >
 
             {/* Header Section */}
             <div className="pos-header-premium" style={{ marginTop: isMobile ? '0.5cm' : '0' }}>
@@ -813,6 +1024,13 @@ export default function Billing() {
                     <h1 className="pos-header-title">Order Products</h1>
                     <button className="btn btn-primary btn-sm" onClick={() => { setCart([]); showToast('New order started!', 'info'); }}>
                         <Plus size={16} /> Order New Product
+                    </button>
+                    <button 
+                        className="btn btn-outline btn-sm" 
+                        onClick={() => setShowImportModal(true)} 
+                        style={{ marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px', color: '#e85d04', borderColor: 'rgba(232,93,4,0.3)' }}
+                    >
+                        📥 Import Table Order {tableOrders.length > 0 && <span style={{ background: '#e85d04', color: '#fff', fontSize: '0.65rem', padding: '1px 5px', borderRadius: '50%' }}>{tableOrders.length}</span>}
                     </button>
                     <div className="branch-indicator" style={{ marginLeft: '1rem' }}>
                         {(userRole === 'admin' || userRole === 'owner') ? (
@@ -847,7 +1065,20 @@ export default function Billing() {
                 </div>
 
                 <div className="pos-header-right">
-                    {!isMobile && (
+                    {/* Mode Toggle — tablet only */}
+                    {isTablet && (
+                        <div className="qo-mode-toggle" style={{ marginRight: '0.5rem' }}>
+                            <button
+                                className={`qo-mode-btn ${quickOrderMode ? 'active' : ''}`}
+                                onClick={() => setQuickOrderMode(true)}
+                            >⚡ Quick Order</button>
+                            <button
+                                className={`qo-mode-btn ${!quickOrderMode ? 'active' : ''}`}
+                                onClick={() => setQuickOrderMode(false)}
+                            >🖼 Menu Grid</button>
+                        </div>
+                    )}
+                    {!isMobile && !quickOrderMode && (
                         <div className="search-bar-premium" style={{ width: '300px' }}>
                             <Search size={18} className="search-icon" />
                             <input
@@ -871,6 +1102,222 @@ export default function Billing() {
                 </div>
             </div>
 
+            {/* ══════════════════════════════════════════════
+                 QUICK ORDER MODE — Tablet Split-Panel
+                 Renders when: isTablet && quickOrderMode
+            ══════════════════════════════════════════════ */}
+            {isTablet && quickOrderMode && (
+                <div className="qo-container" style={{ flex: 1, height: 'auto', minHeight: 0 }}>
+
+                    {/* ── LEFT: Menu Panel ── */}
+                    <div className="qo-menu-panel">
+
+                        {/* Search bar — top */}
+                        <div className="qo-search-bar">
+                            <Search size={16} color="#94a3b8" />
+                            <input
+                                className="qo-search-input"
+                                type="text"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                placeholder="Search products by name..."
+                            />
+                        </div>
+
+                        {/* Category tabs */}
+                        <div className="qo-cat-strip" style={{ borderBottom: selectedCategoryObj?.subcategories?.length > 0 ? 'none' : '1px solid #e2e8f0' }}>
+                            {activeCategories.map(cat => (
+                                <button
+                                    key={cat.id}
+                                    className={`qo-cat-pill ${currentCat === cat.id ? 'active' : ''}`}
+                                    onClick={() => setCurrentCat(cat.id)}
+                                >
+                                    <span>{cat.icon}</span>{cat.name}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Tablet Subcategory strip */}
+                        {selectedCategoryObj?.subcategories?.length > 0 && (
+                            <div className="qo-subcat-strip">
+                                <button
+                                    className={`qo-subcat-pill ${currentSubCat === 'all' ? 'active' : ''}`}
+                                    onClick={() => setCurrentSubCat('all')}
+                                >
+                                    All
+                                </button>
+                                {[...selectedCategoryObj.subcategories]
+                                    .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                    .map(sub => (
+                                        <button
+                                            key={sub.id}
+                                            className={`qo-subcat-pill ${currentSubCat === sub.id ? 'active' : ''}`}
+                                            onClick={() => setCurrentSubCat(sub.id)}
+                                        >
+                                            {sub.name}
+                                        </button>
+                                    ))
+                                }
+                            </div>
+                        )}
+
+                        {/* Item list — 2 columns, text only */}
+                        <div className="qo-item-list">
+                            {filteredMenu.length === 0 ? (
+                                <div style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '200px', color: '#94a3b8', fontWeight: 600, flexDirection: 'column', gap: '8px' }}>
+                                    <span style={{ fontSize: '2rem' }}>🥘</span>
+                                    No items found
+                                </div>
+                            ) : filteredMenu.map(it => {
+                                const cartItem = cart.find(c => c.id === it.id);
+                                const inQty   = cartItem ? cartItem.qty : 0;
+                                return (
+                                    <div
+                                        key={it.id}
+                                        className={`qo-item-row ${inQty > 0 ? 'in-cart' : ''}`}
+                                        onClick={() => { if (inQty === 0) addToCart(it); }}
+                                    >
+                                        {/* Veg/Non-veg dot */}
+                                        <span className={`qo-veg-dot ${it.type === 'veg' ? 'veg' : 'nveg'}`} />
+
+                                        {/* Name */}
+                                        <span className="qo-item-name" title={it.name}>{it.name}</span>
+
+                                        {/* Price */}
+                                        <span className="qo-item-price">₹{Number(it.price || 0).toFixed(0)}</span>
+
+                                        {/* Action: stepper if in cart, else + button */}
+                                        {inQty > 0 ? (
+                                            <div className="qo-mini-stepper" onClick={e => e.stopPropagation()}>
+                                                <button className="qo-mini-btn" onClick={() => updateCartQty(it.id, -1)}><Minus size={10} /></button>
+                                                <span className="qo-mini-qty">{inQty}</span>
+                                                <button className="qo-mini-btn" onClick={() => updateCartQty(it.id, 1)}><Plus size={10} /></button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                className="qo-add-btn"
+                                                onClick={e => { e.stopPropagation(); addToCart(it); }}
+                                            ><Plus size={14} /></button>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* ── RIGHT: Order Panel ── */}
+                    <div className="qo-order-panel">
+
+                        {/* Header row */}
+                        <div className="qo-order-header">
+                            <div className="qo-order-title">
+                                <ShoppingCart size={18} />
+                                Order
+                                {cartCount > 0 && <span className="qo-order-count">{cartCount}</span>}
+                            </div>
+                            <button
+                                style={{ background: '#fee2e2', border: 'none', color: '#ef4444', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 700, fontSize: '0.75rem' }}
+                                onClick={clearCart}
+                                title="Clear order"
+                            >
+                                <Trash2 size={14} /> Clear
+                            </button>
+                        </div>
+
+                        {/* Payment method toggle */}
+                        <div className="qo-pay-toggle">
+                            <button className={`qo-pay-btn ${paymentMethod === 'Cash' ? 'active' : ''}`} onClick={() => setPaymentMethod('Cash')}>
+                                <Banknote size={13} /> Cash
+                            </button>
+                            <button className={`qo-pay-btn ${paymentMethod === 'Online' ? 'active' : ''}`} onClick={() => setPaymentMethod('Online')}>
+                                <CreditCard size={13} /> Online
+                            </button>
+                        </div>
+
+                        {/* Order items list */}
+                        <div className="qo-order-body">
+                            {cart.length === 0 ? (
+                                <div className="qo-empty">
+                                    <ShoppingCart size={36} strokeWidth={1.5} />
+                                    <span>No items added yet</span>
+                                    <span style={{ fontSize: '0.75rem' }}>Tap a product to add</span>
+                                </div>
+                            ) : cart.map(c => (
+                                <div key={c.id} className="qo-order-row">
+                                    <span className="qo-order-row-name" title={c.name}>{c.name}</span>
+                                    <div className="qo-order-stepper">
+                                        <button className="qo-order-step-btn" onClick={() => updateCartQty(c.id, -1)}><Minus size={11} /></button>
+                                        <span className="qo-order-qty">{c.qty}</span>
+                                        <button className="qo-order-step-btn" onClick={() => updateCartQty(c.id, 1)}><Plus size={11} /></button>
+                                    </div>
+                                    <span className="qo-order-total">₹{(c.price * c.qty).toFixed(0)}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Summary + Print */}
+                        <div className="qo-order-footer">
+                            <div className="qo-summary-row">
+                                <span>Subtotal</span>
+                                <span>₹{subtotal.toFixed(2)}</span>
+                            </div>
+                            {discAmount > 0 && (
+                                <div className="qo-summary-row" style={{ color: '#10b981' }}>
+                                    <span>Discount</span>
+                                    <span>-₹{discAmount.toFixed(2)}</span>
+                                </div>
+                            )}
+                            <div className="qo-summary-row">
+                                <span>Tax ({taxPct}%)</span>
+                                <span>₹{taxAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="qo-grand-row">
+                                <span className="qo-grand-label">Grand Total</span>
+                                <span className="qo-grand-amount">₹{grandTotal.toFixed(2)}</span>
+                            </div>
+                            <button
+                                className="qo-print-btn"
+                                onClick={printBill}
+                                disabled={cart.length === 0}
+                                style={{ opacity: cart.length === 0 ? 0.5 : 1, cursor: cart.length === 0 ? 'not-allowed' : 'pointer' }}
+                            >
+                                <Printer size={18} /> CONFIRM &amp; PRINT
+                            </button>
+                            <button className="qo-clear-link" onClick={clearCart}>Clear Order</button>
+                        </div>
+                    </div>
+
+                    {/* Reuse existing print modal */}
+                    {showPrintModal && (
+                        <div className="invoice-modal-overlay">
+                            <div className="invoice-modal-content">
+                                <div className="invoice-modal-header">
+                                    <div className="invoice-design-picker">
+                                        {['Standard', 'Elegant', 'Thermal'].map(d => (
+                                            <button key={d} className={`design-btn ${selectedDesign === d ? 'active' : ''}`} onClick={() => setSelectedDesign(d)}>{d}</button>
+                                        ))}
+                                    </div>
+                                    <button className="btn btn-ghost" onClick={() => setShowPrintModal(false)} style={{ fontSize: '1.5rem' }}>✕</button>
+                                </div>
+                                <div className="invoice-modal-body" id="printable-area">
+                                    {selectedDesign === 'Standard' && printSnapshot && <StandardTemplate cart={printSnapshot.cart} customer={printSnapshot.customer} subtotal={printSnapshot.subtotal} taxAmount={printSnapshot.taxAmount} discAmount={printSnapshot.discAmount} grandTotal={printSnapshot.grandTotal} invoiceNo={printSnapshot.invoiceNo} date={printSnapshot.date} invType={printSnapshot.invType} storeProfile={printSnapshot.storeProfile} couponCode={printSnapshot.couponCode} />}
+                                    {selectedDesign === 'Elegant' && printSnapshot && <ElegantTemplate cart={printSnapshot.cart} customer={printSnapshot.customer} subtotal={printSnapshot.subtotal} taxAmount={printSnapshot.taxAmount} discAmount={printSnapshot.discAmount} grandTotal={printSnapshot.grandTotal} invoiceNo={printSnapshot.invoiceNo} date={printSnapshot.date} invType={printSnapshot.invType} storeProfile={printSnapshot.storeProfile} couponCode={printSnapshot.couponCode} />}
+                                    {selectedDesign === 'Thermal' && printSnapshot && <ThermalTemplate cart={printSnapshot.cart} customer={printSnapshot.customer} subtotal={printSnapshot.subtotal} taxAmount={printSnapshot.taxAmount} discAmount={printSnapshot.discAmount} grandTotal={printSnapshot.grandTotal} invoiceNo={printSnapshot.invoiceNo} date={printSnapshot.date} invType={printSnapshot.invType} storeProfile={printSnapshot.storeProfile} couponCode={printSnapshot.couponCode} />}
+                                </div>
+                                <div className="invoice-modal-footer">
+                                    <button className="btn btn-outline" onClick={() => setShowPrintModal(false)}>Cancel</button>
+                                    <button className="btn btn-primary" onClick={() => handleConfirmPrint()}>Confirm &amp; Print</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <PrintWrapper ref={printRef} snapshot={printSnapshot} selectedDesign={selectedDesign} />
+                </div>
+            )}
+
+            {/* ══ EXISTING MENU GRID (shown when NOT in Quick Order mode) ══ */}
+            {(!isTablet || !quickOrderMode) && (
+            <>
             <div className="billing-grid">
                 {/* Product List Area */}
                 <div className="pos-menu-section">
@@ -887,7 +1334,7 @@ export default function Billing() {
                         </div>
                     )}
                     <div className="cat-strip" id="cat-strip" style={{ 
-                        marginBottom: '1.5rem', 
+                        marginBottom: selectedCategoryObj?.subcategories?.length > 0 ? '0.5rem' : '1.5rem', 
                         padding: '0.5rem 0',
                         overflowX: isMobile ? 'auto' : 'visible',
                         display: 'flex',
@@ -896,16 +1343,7 @@ export default function Billing() {
                         scrollbarWidth: 'none',
                         msOverflowStyle: 'none'
                     }}>
-                        {[
-                            { id: 'all', name: 'All Items', icon: '🍽️' },
-                            { id: 'rice', name: 'Rice & Biryani', icon: '🍚' },
-                            { id: 'starters', name: 'Starters', icon: '🍗' },
-                            { id: 'breads', name: 'Breads', icon: '🫓' },
-                            { id: 'curries', name: 'Curries', icon: '🍛' },
-                            { id: 'drinks', name: 'Drinks', icon: '🥤' },
-                            { id: 'desserts', name: 'Desserts', icon: '🍮' },
-                            { id: 'snacks', name: 'Snacks', icon: '🍿' }
-                        ].map(cat => (
+                        {activeCategories.map(cat => (
                             <button
                                 key={cat.id}
                                 className={`cat-pill ${currentCat === cat.id ? 'active' : ''}`}
@@ -920,6 +1358,49 @@ export default function Billing() {
                             </button>
                         ))}
                     </div>
+
+                    {/* Mobile / General Subcategory strip */}
+                    {selectedCategoryObj?.subcategories?.length > 0 && (
+                        <div className="subcat-strip" style={{
+                            marginBottom: '1rem',
+                            padding: '0.2rem 0',
+                            overflowX: 'auto',
+                            display: 'flex',
+                            gap: '8px',
+                            WebkitOverflowScrolling: 'touch',
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none'
+                        }}>
+                            <button
+                                className={`subcat-pill ${currentSubCat === 'all' ? 'active' : ''}`}
+                                onClick={() => setCurrentSubCat('all')}
+                                style={{
+                                    fontSize: isMobile ? '0.75rem' : '0.85rem',
+                                    padding: isMobile ? '4px 10px' : '6px 12px',
+                                    flexShrink: 0
+                                }}
+                            >
+                                All
+                            </button>
+                            {[...selectedCategoryObj.subcategories]
+                                .sort((a, b) => (a.order || 0) - (b.order || 0))
+                                .map(sub => (
+                                    <button
+                                        key={sub.id}
+                                        className={`subcat-pill ${currentSubCat === sub.id ? 'active' : ''}`}
+                                        onClick={() => setCurrentSubCat(sub.id)}
+                                        style={{
+                                            fontSize: isMobile ? '0.75rem' : '0.85rem',
+                                            padding: isMobile ? '4px 10px' : '6px 12px',
+                                            flexShrink: 0
+                                        }}
+                                    >
+                                        {sub.name}
+                                    </button>
+                                ))
+                            }
+                        </div>
+                    )}
 
                     <div className="food-grid adaptive-grid" id="food-grid">
                         {filteredMenu.length === 0 ? (
@@ -1095,6 +1576,8 @@ export default function Billing() {
                     </div>
                 )}
             </div>
+            </>
+            )}
 
             {/* Mobile Sticky Cart Bar */}
             {isMobileOrTablet && cartCount > 0 && !cartExpanded && (
@@ -1344,12 +1827,98 @@ export default function Billing() {
                         </div>
                         <div className="invoice-modal-footer">
                             <button className="btn btn-outline" onClick={() => setShowPrintModal(false)}>Cancel</button>
-                            <button className="btn btn-primary" onClick={handleConfirmPrint}>Confirm & Print</button>
+                            <button className="btn btn-primary" onClick={() => handleConfirmPrint()}>Confirm & Print</button>
                         </div>
                     </div>
                 </div>
             )}
             <PrintWrapper ref={printRef} snapshot={printSnapshot} selectedDesign={selectedDesign} />
+            
+            {showImportModal && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+                    <div style={{ background: '#fff', width: '100%', maxWidth: '500px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', border: '1px solid #e2e8f0' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>Import Dine-In Table Order</h2>
+                            <button onClick={() => setShowImportModal(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+                        </div>
+                        <div style={{ padding: '1.5rem', maxHeight: '60vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                            {tableOrders.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#64748b' }}>
+                                    <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>🍽️</div>
+                                    <p style={{ margin: 0, fontWeight: 600 }}>No active table orders found for this branch.</p>
+                                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: '#94a3b8' }}>Customer self-orders will appear here in real-time.</p>
+                                </div>
+                            ) : (
+                                tableOrders.map(order => (
+                                    <div 
+                                        key={order.id} 
+                                        onClick={() => handleImportTableOrder(order)}
+                                        style={{ 
+                                            padding: '1rem', 
+                                            border: '1.5px solid #e2e8f0', 
+                                            borderRadius: '16px', 
+                                            cursor: 'pointer', 
+                                            transition: 'all 0.2s',
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center' 
+                                        }}
+                                        className="import-order-card"
+                                    >
+                                        <div>
+                                            <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', margin: 0 }}>{order.tableName}</h3>
+                                            <p style={{ margin: '0.2rem 0 0.4rem', fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>
+                                                {order.items.length} {order.items.length === 1 ? 'item' : 'items'} &bull; ₹{order.total}
+                                            </p>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                {order.items.map((it, idx) => (
+                                                    <span key={idx} style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                                        {it.qty}x {it.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.4rem' }}>
+                                            <span style={{ 
+                                                fontSize: '0.65rem', 
+                                                fontWeight: 900, 
+                                                padding: '0.25rem 0.5rem', 
+                                                borderRadius: '100px',
+                                                textTransform: 'uppercase',
+                                                background: 
+                                                    order.status === 'new' ? 'rgba(239, 68, 68, 0.1)' : 
+                                                    order.status === 'preparing' ? 'rgba(244, 140, 6, 0.1)' : 
+                                                    order.status === 'ready' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                                color: 
+                                                    order.status === 'new' ? '#ef4444' : 
+                                                    order.status === 'preparing' ? '#f48c06' : 
+                                                    order.status === 'ready' ? '#22c55e' : '#3b82f6'
+                                            }}>
+                                                {order.status === 'new' && 'Placed'}
+                                                {order.status === 'preparing' && 'Cooking'}
+                                                {order.status === 'ready' && 'Ready'}
+                                                {order.status === 'served' && 'Served'}
+                                            </span>
+                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>
+                                                {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowImportModal(false)} style={{ padding: '0.5rem 1rem', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}>Close</button>
+                        </div>
+                    </div>
+                    <style>{`
+                        .import-order-card:hover {
+                            border-color: #e85d04 !important;
+                            background-color: rgba(232, 93, 4, 0.02) !important;
+                        }
+                    `}</style>
+                </div>
+            )}
         </div>
     );
 }

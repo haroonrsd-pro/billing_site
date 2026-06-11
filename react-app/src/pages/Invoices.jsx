@@ -51,10 +51,19 @@ export default function Invoices() {
     const [selectedInvoices, setSelectedInvoices] = useState(new Set());
     const [viewingInvoice, setViewingInvoice] = useState(null);
 
+    // Sorting State
+    const [sortField, setSortField] = useState('date');
+    const [sortOrder, setSortOrder] = useState('desc');
+
     const userRole = sessionStorage.getItem('fb_user_role');
     const userCompanyId = sessionStorage.getItem('fb_user_company_id');
     const userBranchId = sessionStorage.getItem('fb_user_branch_id') || 'main';
     const isOwner = userRole === 'owner';
+
+    const handleSort = (field) => {
+        setSortOrder(prev => (sortField === field && prev === 'asc') ? 'desc' : 'asc');
+        setSortField(field);
+    };
 
     /**
      * Fetch Invoices from Service (Server-side)
@@ -97,24 +106,46 @@ export default function Invoices() {
             setLoading(false);
             setLoadingMore(false);
         }
-    }, [userCompanyId, filterStatus, filterBranch, filterType, filterDate, isOwner, userBranchId, branches, showToast]); // Removed lastDoc to prevent loops
+    }, [userCompanyId, filterStatus, filterBranch, filterType, filterDate, isOwner, userBranchId, branches, showToast]);
 
     // Initial load and filter change
     useEffect(() => {
         fetchInvoices();
     }, [filterStatus, filterBranch, filterType, filterDate]);
 
-    // Search logic (Safe guards added)
+    // Search and sorting logic
     const filteredInvoices = useMemo(() => {
         if (!Array.isArray(invoices)) return [];
-        if (!searchTerm) return invoices;
-        const lowerSearch = (searchTerm || '').toLowerCase();
-        return invoices.filter(inv => 
-            (inv.id || '').toLowerCase().includes(lowerSearch) ||
-            (inv.cust || '').toLowerCase().includes(lowerSearch) ||
-            (inv.customerName || '').toLowerCase().includes(lowerSearch)
-        );
-    }, [invoices, searchTerm]);
+        let result = [...invoices];
+        
+        if (searchTerm) {
+            const lowerSearch = (searchTerm || '').toLowerCase();
+            result = result.filter(inv => 
+                (inv.id || '').toLowerCase().includes(lowerSearch) ||
+                (inv.cust || '').toLowerCase().includes(lowerSearch) ||
+                (inv.customerName || '').toLowerCase().includes(lowerSearch)
+            );
+        }
+
+        result.sort((a, b) => {
+            let valA = a[sortField];
+            let valB = b[sortField];
+
+            if (sortField === 'amount') {
+                valA = Number(valA) || 0;
+                valB = Number(valB) || 0;
+            } else {
+                valA = (valA || '').toString().toLowerCase();
+                valB = (valB || '').toString().toLowerCase();
+            }
+
+            if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return result;
+    }, [invoices, searchTerm, sortField, sortOrder]);
 
     const handleLoadMore = () => {
         if (hasMore && !loadingMore) {
@@ -176,19 +207,70 @@ export default function Invoices() {
         setSelectedInvoices(newSet);
     };
 
-    return (
-        <div className="page active" id="page-invoices" style={{ background: '#f8fafc', minHeight: '100vh', padding: '2rem' }}>
-            <div className="pg-header" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
-                    <div className="pg-title" style={{ fontFamily: "'Yeseva One', serif", fontSize: '2.4rem', color: '#0f172a', marginBottom: '0.5rem' }}>Invoices History</div>
-                    <div className="pg-sub" style={{ color: '#64748b', fontSize: '1rem' }}>Manage and track your sales history effortlessly</div>
+    const handlePrintInvoice = (inv) => {
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Invoice #${inv.id.slice(-6).toUpperCase()}</title>
+                <style>
+                    body { font-family: system-ui, sans-serif; padding: 40px; color: #1e293b; }
+                    .header { display: flex; justify-content: space-between; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; }
+                    .details { margin: 30px 0; line-height: 1.6; }
+                    .details h2 { color: #4f46e5; margin-bottom: 5px; }
+                    .table { width: 100%; border-collapse: collapse; margin-top: 30px; }
+                    .table th, .table td { border: 1px solid #e2e8f0; padding: 12px; text-align: left; }
+                    .table th { background-color: #f8fafc; font-weight: 700; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div>
+                        <h1 style="margin: 0; color: #4f46e5;">FoodBill PRO</h1>
+                        <p style="margin: 4px 0 0 0; color: #64748b;">Invoice Record</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <h3 style="margin: 0;">#${inv.id.toUpperCase()}</h3>
+                        <p style="margin: 4px 0 0 0; color: #64748b;">Date: ${inv.date}</p>
+                    </div>
                 </div>
-                <div className="pg-actions" style={{ display: 'flex', gap: '1rem' }}>
+                <div class="details">
+                    <h2>Customer Info</h2>
+                    <div><strong>Name:</strong> ${inv.cust || inv.customerName || 'Walk-in Client'}</div>
+                    <div><strong>Branch:</strong> ${inv.branch || 'Main'}</div>
+                    <div><strong>Type:</strong> ${inv.type || 'Standard Invoice'}</div>
+                    <div style="margin-top: 20px; font-size: 1.25rem;">
+                        <strong>Total Amount:</strong> <span style="color: #10b981; font-weight: 800;">₹${Number(inv.amount).toLocaleString()}</span>
+                    </div>
+                    <div><strong>Status:</strong> <span style="text-transform: uppercase; font-weight: 700; color: ${inv.status === 'Paid' ? '#10b981' : '#f59e0b'}">${inv.status}</span></div>
+                </div>
+                <script>
+                    window.onload = function() { window.print(); window.close(); }
+                </script>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
+
+    const getSortIndicator = (field) => {
+        if (sortField !== field) return null;
+        return sortOrder === 'asc' ? ' ▲' : ' ▼';
+    };
+
+    return (
+        <div className="page active" id="page-invoices" style={{ background: '#f8fafc', minHeight: 'calc(100vh - var(--topbar-h))', padding: '1.5rem', boxSizing: 'border-box' }}>
+            <div className="pg-header" style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <div className="pg-title" style={{ fontFamily: "'Yeseva One', serif", fontSize: '2rem', color: '#0f172a', marginBottom: '0.25rem' }}>Invoices History</div>
+                    <div className="pg-sub" style={{ color: '#64748b', fontSize: '0.875rem' }}>Manage and track your sales history effortlessly</div>
+                </div>
+                <div className="pg-actions" style={{ display: 'flex', gap: '0.75rem' }}>
                     {selectedInvoices.size > 0 && (
                         <button
                             className="btn"
                             onClick={handleBulkDelete}
-                            style={{ background: '#ef4444', color: 'white', padding: '0.8rem 1.6rem', borderRadius: '12px', fontWeight: 700, border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', cursor: 'pointer' }}
+                            style={{ background: '#ef4444', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)', cursor: 'pointer' }}
                         >
                             🗑️ Delete Selected ({selectedInvoices.size})
                         </button>
@@ -199,14 +281,14 @@ export default function Invoices() {
                             const actualBranchId = !isOwner ? userBranchId : (filterBranch !== 'All' ? (branches || []).find(b => `${b.name} — ${b.city}` === filterBranch)?.id : 'All');
                             syncInvoicesExcel(userCompanyId, actualBranchId);
                         }}
-                        style={{ background: '#10b981', color: 'white', padding: '0.8rem 1.6rem', borderRadius: '12px', fontWeight: 700, border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', cursor: 'pointer' }}
+                        style={{ background: '#10b981', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)', cursor: 'pointer' }}
                     >
                         📊 Export to Excel
                     </button>
                     <button
                         className="btn"
                         onClick={() => navigate('/billing')}
-                        style={{ background: '#4f46e5', color: 'white', padding: '0.8rem 1.6rem', borderRadius: '12px', fontWeight: 700, border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', cursor: 'pointer' }}
+                        style={{ background: '#4f46e5', color: 'white', padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 700, fontSize: '0.85rem', border: 'none', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)', cursor: 'pointer' }}
                     >
                         + Create New Invoice
                     </button>
@@ -217,18 +299,18 @@ export default function Invoices() {
             {error && (
                 <div style={{ 
                     background: '#fef2f2', border: '1px solid #fee2e2', color: '#b91c1c', 
-                    padding: '1.5rem', borderRadius: '20px', marginBottom: '2rem',
+                    padding: '1rem', borderRadius: '12px', marginBottom: '1.25rem',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    animation: 'slideIn 0.4s ease'
+                    fontSize: '0.9rem'
                 }}>
                     <div>
                         <div style={{ fontWeight: 800 }}>⚠️ Optimization Required</div>
-                        <div style={{ fontSize: '0.9rem' }}>{error.replace(/https?:\/\/[^\s]+/, '')}</div>
+                        <div style={{ fontSize: '0.85rem' }}>{error.replace(/https?:\/\/[^\s]+/, '')}</div>
                     </div>
                     {error.match(/https?:\/\/[^\s]+/) && (
                         <button 
                             onClick={() => window.open(error.match(/https?:\/\/[^\s]+/)[0], '_blank')}
-                            style={{ background: '#b91c1c', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' }}
+                            style={{ background: '#b91c1c', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.75rem' }}
                         >
                             🛠️ Build Index (Click Here)
                         </button>
@@ -240,21 +322,21 @@ export default function Invoices() {
             {!optimizationMetadata.isOptimized && (
                 <div style={{ 
                     background: '#fffbeb', border: '1px solid #fef3c7', color: '#92400e', 
-                    padding: '1rem 1.5rem', borderRadius: '20px', marginBottom: '2rem',
+                    padding: '0.75rem 1.25rem', borderRadius: '12px', marginBottom: '1.25rem',
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    animation: 'slideIn 0.4s ease'
+                    fontSize: '0.85rem'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <span style={{ fontSize: '1.2rem' }}>⚡</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>⚡</span>
                         <div>
-                            <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>Running in Fallback Mode</div>
+                            <div style={{ fontWeight: 800 }}>Running in Fallback Mode</div>
                             <div style={{ fontSize: '0.8rem' }}>This filter combo is unoptimized. Create an index to improve speed.</div>
                         </div>
                     </div>
                     {optimizationMetadata.indexLink && (
                         <button 
                             onClick={() => window.open(optimizationMetadata.indexLink, '_blank')}
-                            style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', fontSize: '0.8rem' }}
+                            style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '0.75rem' }}
                         >
                             Create Index
                         </button>
@@ -262,115 +344,123 @@ export default function Invoices() {
                 </div>
             )}
 
+            {/* Filters Row */}
             {/* Filter Section Card */}
             <div className="glass shadow-premium" style={{ 
-                borderRadius: '32px', padding: '2.5rem', 
-                background: 'rgba(255, 255, 255, 0.9)', 
-                border: '1px solid rgba(255, 255, 255, 0.4)', 
-                marginBottom: '2.5rem'
+                borderRadius: '16px', padding: '1rem', 
+                background: '#ffffff', 
+                border: '1px solid #e2e8f0', 
+                marginBottom: '1.25rem',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap'
             }}>
-                {/* Search Bar */}
-                <div style={{ position: 'relative', marginBottom: '2.5rem' }}>
-                    <span style={{ position: 'absolute', left: '1.8rem', top: '50%', transform: 'translateY(-50%)', fontSize: '1.4rem', color: '#94a3b8' }}>🔍</span>
-                    <input
-                        type="text"
-                        placeholder="Search by Invoice ID or Client name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        style={{ 
-                            width: '100%', padding: '1.4rem 1.4rem 1.4rem 4.5rem', 
-                            borderRadius: '24px', border: '1.5px solid #e2e8f0', 
-                            background: '#f8fafc', fontSize: '1.1rem', outline: 'none'
-                        }}
-                    />
+                {/* Left side: Search & Type Chips */}
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', flex: 1, minWidth: '280px' }}>
+                    {/* Compact Search */}
+                    <div style={{ position: 'relative', flex: 1, maxWidth: '280px' }}>
+                        <span style={{ position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', fontSize: '1rem', color: '#94a3b8' }}>🔍</span>
+                        <input
+                            type="text"
+                            placeholder="Search by ID or customer..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            style={{ 
+                                width: '100%', padding: '0.5rem 0.5rem 0.5rem 2.2rem', 
+                                borderRadius: '8px', border: '1px solid #cbd5e1', 
+                                background: '#f8fafc', fontSize: '0.875rem', outline: 'none'
+                            }}
+                        />
+                    </div>
+
+                    {/* Chips */}
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {['All', 'Standard', 'GST', 'Proforma', 'Supply'].map(t => (
+                            <button
+                                key={t}
+                                onClick={() => setFilterType(t)}
+                                style={{
+                                    padding: '0.4rem 0.9rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer',
+                                    background: filterType === t ? '#4f46e5' : '#f1f5f9',
+                                    color: filterType === t ? 'white' : '#475569',
+                                    border: 'none',
+                                    transition: 'all 0.15s'
+                                }}
+                            >
+                                {t === 'Supply' ? 'Bill of Supply' : t}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                {/* Filter Controls Row */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.5rem' }}>
-                        <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
-                            {['All', 'Standard', 'GST', 'Proforma', 'Supply'].map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => setFilterType(t)}
-                                    style={{
-                                        padding: '0.8rem 1.8rem', borderRadius: '16px', fontWeight: 800, fontSize: '0.85rem', cursor: 'pointer',
-                                        background: filterType === t ? '#4f46e5' : 'white',
-                                        color: filterType === t ? 'white' : '#64748b',
-                                        border: '1px solid',
-                                        borderColor: filterType === t ? '#4f46e5' : '#e2e8f0'
-                                    }}
-                                >
-                                    {t === 'Supply' ? 'Bill of Supply' : t}
-                                </button>
+                {/* Right side: Dropdown Selects & Date picker */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {isOwner && (
+                        <select 
+                            value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
+                            style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.45rem 0.75rem', fontSize: '0.82rem', fontWeight: 700, color: '#334155', outline: 'none', cursor: 'pointer' }}
+                        >
+                            <option value="All">All Branches</option>
+                            {(branches || []).map(b => (
+                                <option key={b.id || Math.random()} value={`${b.name || ''} — ${b.city || ''}`}>
+                                    {b.name || 'Unnamed Branch'}
+                                </option>
                             ))}
-                        </div>
-                    </div>
+                        </select>
+                    )}
 
-                    <div style={{ 
-                        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem',
-                        background: '#f1f5f9', padding: '0.6rem', borderRadius: '24px'
-                    }}>
-                        {isOwner && (
-                            <div style={{ background: 'white', padding: '0.6rem 1.2rem', borderRadius: '18px', border: '1px solid #e2e8f0' }}>
-                                <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>BRANCH</span>
-                                <select 
-                                    value={filterBranch} onChange={e => setFilterBranch(e.target.value)}
-                                    style={{ background: 'none', border: 'none', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', outline: 'none', cursor: 'pointer', width: '100%' }}
-                                >
-                                    <option value="All">All Locations</option>
-                                    {(branches || []).map(b => (
-                                        <option key={b.id || Math.random()} value={`${b.name || ''} — ${b.city || ''}`}>
-                                            {b.name || 'Unnamed Branch'}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
-                        <div style={{ background: 'white', padding: '0.6rem 1.2rem', borderRadius: '18px', border: '1px solid #e2e8f0' }}>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>STATUS</span>
-                            <select 
-                                value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                                style={{ background: 'none', border: 'none', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', outline: 'none', cursor: 'pointer', width: '100%' }}
-                            >
-                                <option value="All">All Statuses</option>
-                                <option value="Paid">Paid</option>
-                                <option value="Pending">Pending</option>
-                                <option value="Overdue">Overdue</option>
-                            </select>
-                        </div>
-                        <div style={{ background: 'white', padding: '0.6rem 1.2rem', borderRadius: '18px', border: '1px solid #e2e8f0' }}>
-                            <span style={{ fontSize: '0.65rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>DATE</span>
-                            <input 
-                                type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
-                                style={{ background: 'none', border: 'none', fontSize: '0.9rem', fontWeight: 700, color: '#0f172a', outline: 'none', cursor: 'pointer', width: '100%' }} 
-                            />
-                        </div>
-                    </div>
+                    <select 
+                        value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+                        style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.45rem 0.75rem', fontSize: '0.82rem', fontWeight: 700, color: '#334155', outline: 'none', cursor: 'pointer' }}
+                    >
+                        <option value="All">All Statuses</option>
+                        <option value="Paid">Paid</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Overdue">Overdue</option>
+                    </select>
+
+                    <input 
+                        type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)}
+                        style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.4rem 0.75rem', fontSize: '0.82rem', fontWeight: 700, color: '#334155', outline: 'none', cursor: 'pointer' }} 
+                    />
                 </div>
             </div>
 
             {/* Invoices Table */}
-            <div className="table-card shadow-premium" style={{ background: 'white', borderRadius: '32px', overflow: 'hidden', border: '1px solid #f1f5f9' }}>
-                <div className="table-responsive-wrapper">
+            <div className="table-card shadow-premium" style={{ background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #f1f5f9' }}>
+                <div className="table-responsive-wrapper" style={{ maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
                     <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #f1f5f9' }}>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'center', width: '50px' }}>
+                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #f1f5f9', position: 'sticky', top: 0, zIndex: 10 }}>
+                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', width: '40px' }}>
                                     <input 
                                         type="checkbox" 
                                         checked={filteredInvoices.length > 0 && selectedInvoices.size === filteredInvoices.length}
                                         onChange={toggleSelectAll}
-                                        style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                        style={{ transform: 'scale(1.1)', cursor: 'pointer' }}
                                     />
                                 </th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Invoice #</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Client</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Branch</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Date</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Amount</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Status</th>
-                                <th style={{ padding: '1.5rem 1.2rem', textAlign: 'center', fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>Action</th>
+                                <th onClick={() => handleSort('id')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Invoice No{getSortIndicator('id')}
+                                </th>
+                                <th onClick={() => handleSort('cust')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Client{getSortIndicator('cust')}
+                                </th>
+                                <th onClick={() => handleSort('branch')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Branch{getSortIndicator('branch')}
+                                </th>
+                                <th onClick={() => handleSort('date')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Date{getSortIndicator('date')}
+                                </th>
+                                <th onClick={() => handleSort('amount')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Amount{getSortIndicator('amount')}
+                                </th>
+                                <th onClick={() => handleSort('status')} style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                                    Payment Status{getSortIndicator('status')}
+                                </th>
+                                <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontSize: '0.72rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -378,53 +468,58 @@ export default function Invoices() {
                                 <tr><td colSpan="8"><InvoiceSkeleton /></td></tr>
                             ) : filteredInvoices.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" style={{ padding: '4rem', textAlign: 'center' }}>
-                                        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
+                                    <td colSpan="8" style={{ padding: '3rem', textAlign: 'center' }}>
+                                        <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📄</div>
                                         <div style={{ fontWeight: 700, color: '#0f172a' }}>No invoices found</div>
-                                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>Try adjusting your filters or search term</div>
+                                        <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Try adjusting your filters or search term</div>
                                     </td>
                                 </tr>
                             ) : (
-                                filteredInvoices.map((inv) => (
-                                    <tr key={inv.id} className="table-row-hover" style={{ borderTop: '1px solid #f1f5f9' }}>
-                                        <td style={{ padding: '1.4rem 1.2rem', textAlign: 'center' }}>
+                                filteredInvoices.map((inv, idx) => (
+                                    <tr key={inv.id} className="table-row-hover" style={{ 
+                                        borderTop: '1px solid #f1f5f9', 
+                                        backgroundColor: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
+                                        transition: 'background-color 0.15s'
+                                    }}>
+                                        <td style={{ padding: '0.6rem 1rem', textAlign: 'center' }}>
                                             <input 
                                                 type="checkbox"
                                                 checked={selectedInvoices.has(inv.id)}
                                                 onChange={() => toggleSelectOne(inv.id)}
-                                                style={{ transform: 'scale(1.2)', cursor: 'pointer' }}
+                                                style={{ transform: 'scale(1.1)', cursor: 'pointer' }}
                                             />
                                         </td>
-                                        <td style={{ padding: '1.4rem 1.2rem', fontWeight: 800, color: '#4f46e5', fontSize: '0.95rem' }}>
+                                        <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#4f46e5', fontSize: '0.85rem' }}>
                                             #{(inv.id || 'N/A').slice(-6).toUpperCase()}
                                         </td>
-                                        <td style={{ padding: '1.4rem 1.2rem' }}>
-                                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '1rem' }}>{inv.cust || inv.customerName}</div>
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>{inv.type || 'Standard Invoice'}</div>
+                                        <td style={{ padding: '0.6rem 1rem' }}>
+                                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.88rem' }}>{inv.cust || inv.customerName}</div>
+                                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>{inv.type || 'Standard Invoice'}</div>
                                         </td>
-                                        <td style={{ padding: '1.4rem 1.2rem' }}>
-                                            <span style={{ padding: '0.4rem 0.8rem', background: '#f1f5f9', color: '#475569', borderRadius: '10px', fontSize: '0.72rem', fontWeight: 800 }}>
+                                        <td style={{ padding: '0.6rem 1rem' }}>
+                                            <span style={{ padding: '0.25rem 0.5rem', background: '#f1f5f9', color: '#475569', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 800 }}>
                                                 {inv.branch || 'Main'}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '1.4rem 1.2rem', fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>{inv.date}</td>
-                                        <td style={{ padding: '1.4rem 1.2rem', fontWeight: 800, color: '#0f172a', fontSize: '1.1rem' }}>₹{(Number(inv.amount) || 0).toLocaleString()}</td>
-                                        <td style={{ padding: '1.4rem 1.2rem' }}>
+                                        <td style={{ padding: '0.6rem 1rem', fontSize: '0.82rem', color: '#64748b', fontWeight: 600 }}>{inv.date}</td>
+                                        <td style={{ padding: '0.6rem 1rem', fontWeight: 800, color: '#0f172a', fontSize: '0.92rem' }}>₹{(Number(inv.amount) || 0).toLocaleString()}</td>
+                                        <td style={{ padding: '0.6rem 1rem' }}>
                                             <span style={{
-                                                padding: '0.5rem 1rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase',
+                                                padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase',
                                                 background: inv.status === 'Paid' ? '#ecfdf5' : inv.status === 'Pending' ? '#fffbeb' : '#fef2f2',
                                                 color: inv.status === 'Paid' ? '#10b981' : inv.status === 'Pending' ? '#f59e0b' : '#ef4444',
-                                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem'
+                                                display: 'inline-flex', alignItems: 'center', gap: '0.3rem'
                                             }}>
-                                                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }} />
+                                                <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'currentColor' }} />
                                                 {inv.status}
                                             </span>
                                         </td>
-                                        <td style={{ padding: '1.4rem 1.2rem' }}>
-                                            <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'center' }}>
-                                                <button onClick={() => setViewingInvoice(inv)} style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '12px', width: '36px', height: '36px', cursor: 'pointer' }} title="View">👁️</button>
-                                                <button onClick={() => navigate('/credit-notes', { state: { sourceInvoice: inv } })} style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '12px', width: '36px', height: '36px', cursor: 'pointer' }} title="Credit Note">↩️</button>
-                                                <button onClick={() => handleDeleteInvoice(inv.id)} style={{ background: '#fef2f2', border: '1.5px solid #fee2e2', color: '#ef4444', borderRadius: '12px', width: '36px', height: '36px', cursor: 'pointer' }} title="Delete">🗑️</button>
+                                        <td style={{ padding: '0.6rem 1rem' }}>
+                                            <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center' }}>
+                                                <button onClick={() => setViewingInvoice(inv)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="View Details">👁️</button>
+                                                <button onClick={() => navigate('/credit-notes', { state: { sourceInvoice: inv } })} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="Issue Credit Note">↩️</button>
+                                                <button onClick={() => handlePrintInvoice(inv)} style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '8px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="Print Invoice">🖨️</button>
+                                                <button onClick={() => handleDeleteInvoice(inv.id)} style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#ef4444', borderRadius: '8px', width: '28px', height: '28px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem' }} title="Delete Invoice">🗑️</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -435,13 +530,13 @@ export default function Invoices() {
                 </div>
 
                 {hasMore && !loading && (
-                    <div style={{ padding: '2rem', textAlign: 'center', borderTop: '1px solid #f1f5f9' }}>
+                    <div style={{ padding: '1rem', textAlign: 'center', borderTop: '1px solid #f1f5f9' }}>
                         <button 
                             onClick={handleLoadMore}
                             disabled={loadingMore}
                             style={{ 
-                                padding: '0.8rem 2rem', borderRadius: '14px', background: '#f1f5f9', 
-                                color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer'
+                                padding: '0.5rem 1.5rem', borderRadius: '8px', background: '#f1f5f9', 
+                                color: '#475569', fontWeight: 700, border: 'none', cursor: 'pointer', fontSize: '0.8rem'
                             }}
                         >
                             {loadingMore ? 'Loading...' : 'Load More Invoices'}
@@ -450,33 +545,37 @@ export default function Invoices() {
                 )}
             </div>
 
-            {/* View Invoice Modal (Keep existing logic simplified) */}
+            {/* View Invoice Modal */}
             {viewingInvoice && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
-                    <div style={{ background: 'white', padding: '2.5rem', borderRadius: '32px', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto' }}>
-                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem' }}>
-                            <h3 style={{ margin: 0, fontSize: '1.8rem', fontFamily: "'Yeseva One', serif" }}>Invoice Details</h3>
-                            <button onClick={() => setViewingInvoice(null)} style={{ border: 'none', background: '#f1f5f9', borderRadius: '10px', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
+                    <div style={{ background: 'white', padding: '2rem', borderRadius: '24px', width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto' }}>
+                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.5rem', fontFamily: "'Yeseva One', serif" }}>Invoice Details</h3>
+                            <button onClick={() => setViewingInvoice(null)} style={{ border: 'none', background: '#f1f5f9', borderRadius: '8px', width: '28px', height: '28px', cursor: 'pointer' }}>✕</button>
                          </div>
-                         <div style={{ display: 'grid', gap: '1.5rem' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-                                 <span style={{ fontWeight: 700, color: '#64748b' }}>Invoice ID</span>
-                                 <span style={{ fontWeight: 800 }}>#{(viewingInvoice.id || 'N/A').slice(-8).toUpperCase()}</span>
-                             </div>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-                                 <span style={{ fontWeight: 700, color: '#64748b' }}>Client</span>
-                                 <span style={{ fontWeight: 800 }}>{viewingInvoice.cust || viewingInvoice.customerName}</span>
-                             </div>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-                                 <span style={{ fontWeight: 700, color: '#64748b' }}>Date</span>
-                                 <span style={{ fontWeight: 800 }}>{viewingInvoice.date}</span>
-                             </div>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '1rem' }}>
-                                 <span style={{ fontWeight: 700, color: '#64748b' }}>Total Amount</span>
-                                 <span style={{ fontWeight: 800, fontSize: '1.4rem', color: '#4f46e5' }}>₹{(Number(viewingInvoice.amount) || 0).toLocaleString()}</span>
-                             </div>
+                         <div style={{ display: 'grid', gap: '1rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#64748b', fontSize: '0.88rem' }}>Invoice ID</span>
+                                  <span style={{ fontWeight: 800, fontSize: '0.88rem' }}>#{(viewingInvoice.id || 'N/A').toUpperCase()}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#64748b', fontSize: '0.88rem' }}>Client</span>
+                                  <span style={{ fontWeight: 800, fontSize: '0.88rem' }}>{viewingInvoice.cust || viewingInvoice.customerName}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#64748b', fontSize: '0.88rem' }}>Date</span>
+                                  <span style={{ fontWeight: 800, fontSize: '0.88rem' }}>{viewingInvoice.date}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#64748b', fontSize: '0.88rem' }}>Total Amount</span>
+                                  <span style={{ fontWeight: 800, fontSize: '1.2rem', color: '#4f46e5' }}>₹{(Number(viewingInvoice.amount) || 0).toLocaleString()}</span>
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#64748b', fontSize: '0.88rem' }}>Payment Status</span>
+                                  <span style={{ fontWeight: 800, fontSize: '0.88rem', color: viewingInvoice.status === 'Paid' ? '#10b981' : '#f59e0b' }}>{viewingInvoice.status}</span>
+                              </div>
                          </div>
-                         <button onClick={() => setViewingInvoice(null)} style={{ width: '100%', marginTop: '2rem', padding: '1rem', background: '#4f46e5', color: 'white', borderRadius: '16px', border: 'none', fontWeight: 700, cursor: 'pointer' }}>Close Details</button>
+                         <button onClick={() => setViewingInvoice(null)} style={{ width: '100%', marginTop: '1.5rem', padding: '0.75rem', background: '#4f46e5', color: 'white', borderRadius: '12px', border: 'none', fontWeight: 700, cursor: 'pointer', fontSize: '0.9rem' }}>Close Details</button>
                     </div>
                 </div>
             )}

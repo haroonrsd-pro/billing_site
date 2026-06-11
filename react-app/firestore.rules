@@ -2,53 +2,98 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isSuperAdmin() {
+      return isSignedIn() && getUserData().role in ['superadmin', 'super_admin'];
+    }
+    
+    function getOwnerId(userData) {
+      return userData.role == 'owner' ? request.auth.uid : (userData.ownerId != null ? userData.ownerId : userData.adminUID);
+    }
+    
+    function isOwnerOrStaffOf(ownerId) {
+      return isSignedIn() && (
+        request.auth.uid == ownerId || 
+        getOwnerId(getUserData()) == ownerId ||
+        isSuperAdmin()
+      );
+    }
+
     // 1. Unified User Profile Collection
     match /users/{userId} {
-      // Users can read/write their own profile.
-      // Owners and Admins can manage their own team (ownerId check).
-      
-      allow read: if request.auth != null && (
+      allow read: if isSignedIn() && (
         request.auth.uid == userId || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['superadmin', 'super_admin'] ||
+        isSuperAdmin() ||
         resource.data.ownerId == request.auth.uid ||
-        resource.data.ownerId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerId
+        resource.data.adminUID == request.auth.uid ||
+        getOwnerId(resource.data) == getOwnerId(getUserData())
       );
       
-      allow write: if request.auth != null && (
+      allow write: if isSignedIn() && (
         request.auth.uid == userId || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['superadmin', 'super_admin'] ||
-        // Check if target ownerId matches creator's UID (Owner) or creator's own ownerId (Admin)
+        isSuperAdmin() ||
         (request.method == 'create' && (
           request.resource.data.ownerId == request.auth.uid ||
-          request.resource.data.ownerId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerId
+          request.resource.data.adminUID == request.auth.uid ||
+          getOwnerId(request.resource.data) == getOwnerId(getUserData())
         )) ||
         (exists(/databases/$(database)/documents/users/$(userId)) && (
-          get(/databases/$(database)/documents/users/$(userId)).data.ownerId == request.auth.uid ||
-          get(/databases/$(database)/documents/users/$(userId)).data.ownerId == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerId
+          getOwnerId(get(/databases/$(database)/documents/users/$(userId)).data) == request.auth.uid ||
+          getOwnerId(get(/databases/$(database)/documents/users/$(userId)).data) == getOwnerId(getUserData())
         ))
       );
     }
 
     // 2. Multi-Tenant Business Data (Scoped by ownerId)
+    // 2.1 Public Access Rules for Customer Self-Ordering Menu
+    match /owners/{ownerId}/products/{productId} {
+      allow read: if true;
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stock'])) || 
+                    isOwnerOrStaffOf(ownerId);
+      allow create, delete: if isOwnerOrStaffOf(ownerId);
+    }
+
+    match /owners/{ownerId}/branches/{branchId} {
+      allow read: if true;
+      allow write: if isOwnerOrStaffOf(ownerId);
+    }
+
+    match /owners/{ownerId}/branches/{branchId}/tables/{tableId} {
+      allow read: if true;
+      allow update: if (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+                    isOwnerOrStaffOf(ownerId);
+      allow create, delete: if isOwnerOrStaffOf(ownerId);
+    }
+
+    match /owners/{ownerId}/branches/{branchId}/orders/{orderId} {
+      allow read, create, update: if true;
+      allow delete: if isOwnerOrStaffOf(ownerId);
+    }
+
+    // 2.2 General Tenant Scoped Collections (Catch-all)
     match /owners/{ownerId}/{subcollection}/{docId} {
-      allow read, write: if request.auth != null && (
-        request.auth.uid == ownerId || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.ownerId == ownerId ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['superadmin', 'super_admin']
-      );
+      allow read, write: if isOwnerOrStaffOf(ownerId);
     }
 
     // 3. Registration System
     match /registration_requests/{requestId} {
       allow create: if true;
-      allow read, write: if request.auth != null && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['superadmin', 'super_admin'];
+      allow read, write: if isSignedIn() && 
+        getUserData().role in ['superadmin', 'super_admin'];
     }
 
     // 4. Global Admin Access (Safety catch-all)
     match /{document=**} {
-      allow read, write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['superadmin', 'super_admin']
+      allow read, write: if isSignedIn() && (
+        getUserData().role in ['superadmin', 'super_admin']
       );
     }
   }
