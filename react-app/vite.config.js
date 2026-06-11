@@ -1,6 +1,20 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import os from 'os'
+
+function getLocalIPs() {
+  const interfaces = os.networkInterfaces()
+  const ips = []
+  for (const name of Object.keys(interfaces)) {
+    for (const net of interfaces[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        ips.push(net.address)
+      }
+    }
+  }
+  return ips
+}
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -32,6 +46,9 @@ export default defineConfig({
       }
     })
   ],
+  define: {
+    __LOCAL_IPS__: JSON.stringify(getLocalIPs())
+  },
   server: {
     port: 5174,
     open: true,
@@ -39,3 +56,4 @@ export default defineConfig({
   },
   base: './'
 })
+

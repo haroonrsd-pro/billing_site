@@ -690,8 +690,10 @@ body {
 
 /* Desktop collapsed: icon-only strip (stays visible) */
 .sidebar.collapsed {
-    width: 72px;
-    min-width: 72px;
+    width: 0;
+    min-width: 0;
+    border-right: none;
+    box-shadow: none;
 }
 
 /* Collapsed — center the store icon */
@@ -856,9 +858,9 @@ body {
     overflow-x: hidden;
 }
 
-/* Collapsed sidebar: shift content to match 72px icon strip */
+/* Collapsed sidebar: shift content to match 0px (full-screen) */
 .main-content.expanded {
-    margin-left: 72px;
+    margin-left: 0;
 }
 
 /* PAGE */
@@ -4640,7 +4642,12 @@ body {
 
 @media (min-width: 768px) and (max-width: 1024px) {
     .device-tablet.sidebar-collapsed {
-        --sidebar-w: 80px;
+        --sidebar-w: 0px;
+    }
+
+    .device-tablet.sidebar-collapsed .sidebar {
+        border-right: none !important;
+        box-shadow: none !important;
     }
 
     .device-tablet.sidebar-expanded {

@@ -224,8 +224,6 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
         </div>
     );
 
-    // MOBILE & TABLET RENDER
-    if (isMobile || isTablet) {
     // MOBILE RENDER
     if (isMobile || variant === 'compact') {
         return (
@@ -307,7 +305,12 @@ export default function Topbar({ onToggleSidebar, variant = 'full' }) {
     if (isTablet && variant !== 'compact') {
         return (
             <header className="topbar tablet-topbar" style={{ height: '60px' }}>
-                <div className="topbar-left">
+                <div className="topbar-left" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    {onToggleSidebar && (
+                        <button className="sidebar-toggle" onClick={onToggleSidebar} title="Toggle Menu">
+                            <Menu size={20} />
+                        </button>
+                    )}
                     <div className="breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--muted)', fontSize: '0.9rem' }}>
                         <span>Home</span>
                         <ChevronRight size={14} />

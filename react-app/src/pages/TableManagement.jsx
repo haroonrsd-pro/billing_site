@@ -17,7 +17,23 @@ export default function TableManagement() {
     
     // Scan Base URL for local testing & domain customization
     const [qrBaseUrl, setQrBaseUrl] = useState(() => {
-        return localStorage.getItem('qr_scan_base_url') || window.location.origin;
+        const saved = localStorage.getItem('qr_scan_base_url');
+        if (saved) return saved;
+        
+        const origin = window.location.origin;
+        const hostname = window.location.hostname;
+        
+        // If we are on localhost, try to find a network IP to make local Wi-Fi scanning work out-of-the-box
+        if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            const localIps = typeof __LOCAL_IPS__ !== 'undefined' ? __LOCAL_IPS__ : [];
+            // Prefer standard local Wi-Fi range (192.168.x.x) or private subnets
+            const mainIp = localIps.find(ip => ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.'));
+            const fallbackIp = mainIp || localIps[0];
+            if (fallbackIp) {
+                return `http://${fallbackIp}:${window.location.port || '5174'}`;
+            }
+        }
+        return origin;
     });
     
     // Modals & Forms State
@@ -47,10 +63,14 @@ export default function TableManagement() {
 
     // Generate QR Data URL dynamically when tables list updates
     useEffect(() => {
-        tables.forEach(async (table) => {
-            if (!qrUrls[table.id]) {
+        let active = true;
+        const generateMissingQRs = async () => {
+            const missingTables = tables.filter(t => !qrUrls[t.id]);
+            if (missingTables.length === 0) return;
+
+            const newUrls = {};
+            for (const table of missingTables) {
                 try {
-                    // Embed custom base URL to support mobile Wi-Fi / production domain QR scanning
                     const targetUrl = table.qrUrl 
                         ? table.qrUrl.replace(window.location.origin, qrBaseUrl)
                         : `${qrBaseUrl}/#/menu/${ownerId}/${branchId}/${table.id}`;
@@ -63,13 +83,22 @@ export default function TableManagement() {
                             light: '#ffffff'
                         }
                     });
-                    setQrUrls(prev => ({ ...prev, [table.id]: url }));
+                    newUrls[table.id] = url;
                 } catch (err) {
                     console.error("QR Code generation error:", err);
                 }
             }
-        });
-    }, [tables, ownerId, branchId, qrBaseUrl]);
+
+            if (active && Object.keys(newUrls).length > 0) {
+                setQrUrls(prev => ({ ...prev, ...newUrls }));
+            }
+        };
+
+        generateMissingQRs();
+        return () => {
+            active = false;
+        };
+    }, [tables, ownerId, branchId, qrBaseUrl, qrUrls]);
 
     const handleOpenAdd = () => {
         const nextNumber = tables.length > 0 ? Math.max(...tables.map(t => t.number || 0)) + 1 : 1;
@@ -308,6 +337,39 @@ export default function TableManagement() {
                         Use Default Origin
                     </button>
                 </div>
+                {typeof __LOCAL_IPS__ !== 'undefined' && __LOCAL_IPS__.length > 0 && (
+                    <div style={{ marginTop: '0.5rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b' }}>Detected computer IPs:</span>
+                        {__LOCAL_IPS__.map(ip => {
+                            const url = `http://${ip}:${window.location.port || '5174'}`;
+                            const isActive = qrBaseUrl.includes(ip);
+                            return (
+                                <button
+                                    key={ip}
+                                    type="button"
+                                    onClick={() => {
+                                        setQrBaseUrl(url);
+                                        localStorage.setItem('qr_scan_base_url', url);
+                                        setQrUrls({}); // Force regeneration
+                                        showToast(`Set QR Base URL to ${url}`, "success");
+                                    }}
+                                    style={{
+                                        padding: '0.35rem 0.7rem',
+                                        borderRadius: '6px',
+                                        border: isActive ? '1.5px solid #e85d04' : '1.5px solid #e2e8f0',
+                                        background: isActive ? 'rgba(232, 93, 4, 0.05)' : '#fff',
+                                        color: isActive ? '#e85d04' : '#475569',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {url}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
 
             {/* Stats */}
